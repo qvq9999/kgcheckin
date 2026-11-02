@@ -1,0 +1,68 @@
+name: 快捷添加账号
+
+# 由网页（Cloudflare Worker）触发：Worker 把扫码凭证放进一次性队列，
+# 本工作流主动领取后合并进 USERINFO。
+# 注意：Worker 侧不写任何仓库配置，只调用 workflow_dispatch。
+on:
+  workflow_dispatch:
+    inputs:
+      pending_id:
+        description: "待领取凭证 ID（网页生成，非敏感）"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# 连点两次不会并发覆盖
+concurrency:
+  group: quick-add
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 创建 Node 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 领取扫码凭证（一次性）
+        env:
+          SYNC_URL: ${{ secrets.SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          PENDING_ID: ${{ inputs.pending_id }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${SYNC_URL:-}" ] || [ -z "${SYNC_TOKEN:-}" ]; then
+            echo "::error::缺少 SYNC_URL / SYNC_TOKEN，无法领取扫码凭证"
+            exit 1
+          fi
+          URL="${SYNC_URL%/}/internal/pending?id=${PENDING_ID}"
+          CODE=$(curl -sS -o pending.json -w '%{http_code}' -H "Authorization: Bearer ${SYNC_TOKEN}" "$URL")
+          if [ "$CODE" != "200" ]; then
+            echo "::error::领取凭证失败 HTTP $CODE"
+            head -c 400 pending.json || true
+            exit 1
+          fi
+          echo "已领取凭证（内容不打印，避免泄露 token）"
+
+      - name: 合并写入 USERINFO
+        env:
+          USERINFO: ${{ secrets.USERINFO }}
+          PAT: ${{ secrets.PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SYNC_URL: ${{ secrets.SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          PENDING_FILE: ./pending.json
+        run: node quickAdd.js
+
+      - name: 清理临时文件
+        if: ${{ always() }}
+        run: rm -f pending.json

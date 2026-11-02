@@ -51,6 +51,20 @@ function setRepoSecret(name, value) {
 }
 
 /**
+ * 删除仓库 Secret（清理一次性凭证用）。不存在时视为成功。
+ * @param {string} name
+ */
+function deleteSecret(name) {
+  const repository = process.env.GITHUB_REPOSITORY;
+  try {
+    return runGh(["secret", "delete", name, "--repo", repository]);
+  } catch (e) {
+    if (/HTTP 404|Not Found/i.test(e.message)) return true;
+    throw e;
+  }
+}
+
+/**
  * 写权限探针：真的往仓库写一个临时 secret 再删掉。
  * 目的：在用户扫码之前就把「PAT 失效 / 没有 Secrets 写权限」暴露出来，
  * 而不是等扫码成功后才发现写不进去（历史 bug：工作流绿了但账号没存上）。
@@ -72,4 +86,4 @@ function probeSecretWrite() {
   return { ok: true, detail: "ok" };
 }
 
-export { hasSecretWriteToken, setRepoSecret, probeSecretWrite };
+export { hasSecretWriteToken, setRepoSecret, deleteSecret, probeSecretWrite };

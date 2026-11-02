@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f6f4">
+<title>酷狗概念版签到</title>
+<style>
+:root{
+  --bg:#f6f6f4; --card:#ffffff; --line:rgba(0,0,0,.10); --line-2:rgba(0,0,0,.16);
+  --text:#1c1c1a; --muted:#6b6a64; --faint:#9c9a93;
+  --ok-bg:#eaf3de; --ok-fg:#3b6d11;
+  --wait-bg:#faeeda; --wait-fg:#854f0b;
+  --err-bg:#fcebeb; --err-fg:#a32d2d;
+  --info-bg:#e6f1fb; --info-fg:#185fa5;
+  --radius:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:15px; line-height:1.5; padding:18px 16px 40px;
+}
+.wrap{max-width:460px;margin:0 auto}
+.card{background:var(--card);border:.5px solid var(--line);border-radius:var(--radius)}
+h1{font-size:17px;font-weight:500;margin:0}
+.sub{font-size:13px;color:var(--faint);margin:4px 0 0}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.chip.wait{background:var(--wait-bg);color:var(--wait-fg)}
+.chip.err{background:var(--err-bg);color:var(--err-fg)}
+.chip.info{background:var(--info-bg);color:var(--info-fg)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 12px}
+.metric{background:#efeeea;border-radius:12px;padding:10px 12px}
+.metric .k{font-size:12px;color:var(--muted)}
+.metric .v{font-size:22px;font-weight:500;margin-top:2px}
+#addCard{padding:12px;margin-bottom:12px}
+.qrbox{
+  width:104px;height:104px;flex:0 0 104px;background:#fff;border:.5px solid var(--line);
+  border-radius:12px;padding:6px;display:flex;align-items:center;justify-content:center;overflow:hidden
+}
+.qrbox svg{width:100%;height:100%;display:block}
+.qrbox.empty{background:#f3f2ee;color:var(--faint);font-size:12px;text-align:center}
+.addmeta{flex:1;min-width:0}
+.addmeta .t{font-size:14px;font-weight:500}
+.addmeta .d{font-size:12px;color:var(--faint);margin:3px 0 8px}
+button{
+  font:inherit;font-size:13px;border-radius:10px;border:.5px solid var(--line-2);
+  background:#fff;color:var(--text);padding:9px 12px;cursor:pointer
+}
+button:active{background:#f1f0ec}
+button.primary{background:var(--text);color:#fff;border-color:var(--text)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.link{border:none;background:none;color:var(--info-fg);padding:0;font-size:12px}
+.actions{display:flex;gap:8px;align-items:center;margin-top:10px}
+input[type=text],input[type=password]{
+  width:100%;font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;
+  border:.5px solid var(--line-2);background:#fff;color:var(--text);outline:none
+}
+input:focus{border-color:var(--info-fg)}
+.searchwrap{position:relative;margin-bottom:10px}
+.searchwrap input{padding-left:34px}
+.searchwrap .icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.45;font-size:13px}
+.list{overflow:hidden}
+.item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:.5px solid var(--line)}
+.item:last-child{border-bottom:none}
+.item.hit{background:var(--info-bg)}
+.avatar{
+  width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#efeeea;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;font-size:12px
+}
+.item.hit .avatar{background:#fff;color:var(--info-fg)}
+.item .body{flex:1;min-width:0}
+.item .name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .meta{font-size:11px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .right{flex:0 0 auto;text-align:right}
+.empty{padding:28px 16px;text-align:center;color:var(--faint);font-size:13px}
+.foot{font-size:11px;color:var(--faint);text-align:center;margin:10px 0 0}
+.gate{margin-top:36px}
+.gate .card{padding:18px}
+.gate h2{font-size:15px;font-weight:500;margin:0 0 4px}
+.gate p{font-size:12px;color:var(--faint);margin:0 0 14px}
+.hint{font-size:12px;color:var(--err-fg);margin-top:8px;min-height:16px}
+.success{padding:16px;margin-bottom:12px;display:none}
+.success.show{display:block}
+.success .big{font-size:15px;font-weight:500}
+.success .small{font-size:12px;color:var(--faint);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section id="gate" class="gate" hidden>
+    <div class="card">
+      <h2>输入访问口令</h2>
+      <p>口令只保存在本机浏览器，用于确认你是仓库主人。</p>
+      <input id="tokenInput" type="password" placeholder="访问口令" autocomplete="current-password">
+      <div class="actions"><button class="primary" id="tokenBtn" style="flex:1">进入</button></div>
+      <div class="hint" id="gateHint"></div>
+    </div>
+  </section>
+
+  <main id="app" hidden>
+    <div class="between">
+      <div>
+        <h1>酷狗概念版签到</h1>
+        <p class="sub" id="subline">每日 01:10 自动领取</p>
+      </div>
+      <span class="chip ok" id="runChip">运行中</span>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="k">账号数</div><div class="v" id="mTotal">-</div></div>
+      <div class="metric"><div class="k">今日签到</div><div class="v" id="mToday">-</div></div>
+    </div>
+
+    <div class="card" id="addCard">
+      <div class="row">
+        <div class="qrbox" id="qrbox">获取中</div>
+        <div class="addmeta">
+          <div class="t" id="addTitle">添加新账号</div>
+          <div class="d" id="addDesc">用酷狗 APP 扫码并在手机上确认</div>
+          <span class="chip wait" id="addChip">准备中</span>
+          <div class="actions">
+            <button id="refreshBtn">换一张</button>
+            <button class="link" id="reloadBtn">刷新账号列表</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card success" id="successCard">
+      <div class="big" id="successTitle">已添加</div>
+      <div class="small" id="successDesc">正在合并进签到列表，约 30 秒后生效</div>
+    </div>
+
+    <div class="searchwrap">
+      <span class="icon">⌕</span>
+      <input id="q" type="text" placeholder="搜索昵称或 userid，查查在不在列表里">
+    </div>
+
+    <div class="card list" id="list"></div>
+    <p class="foot" id="foot"></p>
+  </main>
+</div>
+
+<script>
+const LS_KEY = 'kgcheckin_token';
+const QR_TTL = 120;
+let token = localStorage.getItem(LS_KEY) || '';
+let state = { accounts: [], updatedAt: null };
+let qr = { key: null, deadline: 0, timer: null, polling: false, done: false };
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Auth': token, ...(opts.headers || {}) },
+  });
+  let body = null;
+  try { body = await res.json(); } catch { body = null; }
+  if (res.status === 401) { showGate('口令不正确'); throw new Error('unauthorized'); }
+  if (!res.ok) throw new Error((body && body.error) || ('HTTP ' + res.status));
+  return body;
+}
+
+function showGate(msg) {
+  $('app').hidden = true;
+  $('gate').hidden = false;
+  $('gateHint').textContent = msg || '';
+}
+
+function maskId(id) {
+  const s = String(id || '');
+  if (s.length <= 6) return s;
+  return s.slice(0, 4) + '***' + s.slice(-3);
+}
+
+function fmtVip(v) {
+  if (!v) return 'VIP 到期未知';
+  const s = String(v).replace(/-/g, '/');
+  const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (!m) return 'VIP 至 ' + String(v).slice(0, 16);
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  const days = Math.ceil((d - new Date()) / 86400000);
+  const base = `VIP 至 ${m[1]}/${m[2]}/${m[3]}`;
+  if (Number.isNaN(days)) return base;
+  if (days < 0) return base + '（已过期）';
+  if (days === 0) return base + '（今天）';
+  return base + `（${days} 天）`;
+}
+
+function render() {
+  const list = $('list');
+  const q = $('q').value.trim().toLowerCase();
+  const all = state.accounts || [];
+  const matched = q
+    ? all.filter((a) => String(a.nickname || '').toLowerCase().includes(q) || String(a.userid).includes(q))
+    : all;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const signed = all.filter((a) => a.lastCheckin === today && a.ok !== false).length;
+  $('mTotal').textContent = all.length;
+  $('mToday').textContent = all.length ? signed + '/' + all.length : '-';
+
+  list.textContent = '';
+  if (!matched.length) {
+    const box = el('div', 'empty');
+    box.textContent = all.length
+      ? '没有匹配的账号，换个昵称或 userid 试试'
+      : '还没有账号数据。添加成功后约 30 秒会同步过来。';
+    list.appendChild(box);
+  } else {
+    for (const a of matched) {
+      const item = el('div', 'item' + (q ? ' hit' : ''));
+      const av = el('div', 'avatar', (a.nickname || '?').slice(0, 1));
+      const body = el('div', 'body');
+      body.appendChild(el('div', 'name', a.nickname || '（未获取昵称）'));
+      const meta = el('div', 'meta');
+      meta.textContent = `${maskId(a.userid)} · ${fmtVip(a.vipExpiry)}`;
+      body.appendChild(meta);
+
+      const right = el('div', 'right');
+      let chip;
+      if (a.lastCheckin === today && a.ok !== false) chip = el('span', 'chip ok', '今日已签');
+      else if (a.ok === false) chip = el('span', 'chip err', '签到失败');
+      else chip = el('span', 'chip wait', '待签到');
+      right.appendChild(chip);
+
+      item.append(av, body, right);
+      list.appendChild(item);
+    }
+  }
+
+  const upd = state.updatedAt ? new Date(state.updatedAt) : null;
+  const mins = upd ? Math.max(0, Math.round((Date.now() - upd.getTime()) / 60000)) : null;
+  $('subline').textContent = all.length ? `${all.length} 个账号 · 每日 01:10 自动领取` : '每日 01:10 自动领取';
+  $('foot').textContent = upd
+    ? `共 ${all.length} 个账号 · 数据同步于 ${mins < 1 ? '刚刚' : mins + ' 分钟前'}`
+    : '数据尚未同步，跑一次签到或添加后即可显示';
+}
+
+async function loadAccounts() {
+  const data = await api('/api/accounts');
+  state = { accounts: data.accounts || [], updatedAt: data.updatedAt };
+  if (data.latestRun) {
+    const r = data.latestRun;
+    const chip = $('runChip');
+    if (r.status === 'in_progress' || r.status === 'queued') { chip.className = 'chip wait'; chip.textContent = '同步中'; }
+    else if (r.conclusion === 'success') { chip.className = 'chip ok'; chip.textContent = '运行中'; }
+    else if (r.conclusion) { chip.className = 'chip err'; chip.textContent = '上次失败'; }
+  }
+  render();
+}
+
+function setAddState(kind, title, chipText, desc) {
+  $('addTitle').textContent = title;
+  const chip = $('addChip');
+  chip.className = 'chip ' + kind;
+  chip.textContent = chipText;
+  if (desc) $('addDesc').textContent = desc;
+}
+
+async function newQr() {
+  clearInterval(qr.timer);
+  qr = { key: null, deadline: 0, timer: null, polling: false, done: true };
+  $('qrbox').className = 'qrbox';
+  $('qrbox').textContent = '获取中';
+  $('successCard').classList.remove('show');
+  setAddState('wait', '添加新账号', '准备中', '用酷狗 APP 扫码并在手机上确认');
+
+  try {
+    const data = await api('/api/qr/new', { method: 'POST' });
+    qr.key = data.key;
+    qr.deadline = Date.now() + QR_TTL * 1000;
+    qr.done = false;
+    $('qrbox').innerHTML = data.svg;
+    setAddState('wait', '添加新账号', '等待扫码', '用酷狗 APP 扫码并在手机上确认');
+    tick();
+    qr.timer = setInterval(tick, 1000);
+    pollStatus();
+  } catch (e) {
+    $('qrbox').className = 'qrbox empty';
+    $('qrbox').textContent = '获取失败';
+    setAddState('err', '添加新账号', '二维码获取失败', e.message || '请稍后重试');
+  }
+}
+
+function tick() {
+  const left = Math.max(0, Math.floor((qr.deadline - Date.now()) / 1000));
+  if (qr.done) return;
+  const mm = String(Math.floor(left / 60)).padStart(2, '0');
+  const ss = String(left % 60).padStart(2, '0');
+  $('addChip').textContent = '等待扫码 · ' + mm + ':' + ss;
+  if (left <= 0) {
+    clearInterval(qr.timer);
+    qr.done = true;
+    setAddState('err', '二维码已过期', '已过期', '点「换一张」重新获取');
+    $('qrbox').className = 'qrbox empty';
+    $('qrbox').textContent = '已过期';
+  }
+}
+
+async function pollStatus() {
+  if (qr.polling || qr.done) return;
+  qr.polling = true;
+  try {
+    while (!qr.done) {
+      const data = await api('/api/qr/status?key=' + encodeURIComponent(qr.key));
+      if (data.status === 2) setAddState('info', '已在手机上确认?', '待确认', '请在手机上点「确认登录」');
+      if (data.status === 4) {
+        qr.done = true;
+        clearInterval(qr.timer);
+        setAddState('info', '正在写入', '提交中', '正在把账号加入签到列表');
+        await commit(data.sessionId, data.nickname);
+        return;
+      }
+      if (data.status === 0) {
+        qr.done = true;
+        clearInterval(qr.timer);
+        setAddState('err', '二维码已过期', '已过期', '点「换一张」重新获取');
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 2500));
+    }
+  } catch (e) {
+    if (String(e.message) !== 'unauthorized') {
+      setAddState('err', '查询失败', '网络异常', e.message || '');
+    }
+  } finally {
+    qr.polling = false;
+  }
+}
+
+async function commit(sessionId, nickname) {
+  try {
+    await api('/api/commit', { method: 'POST', body: JSON.stringify({ sessionId }) });
+    setAddState('ok', '添加成功', '已提交', 'Actions 正在合并进 USERINFO');
+    $('qrbox').className = 'qrbox empty';
+    $('qrbox').textContent = '已完成';
+    $('successCard').classList.add('show');
+    $('successTitle').textContent = nickname ? `已添加「${nickname}」` : '已添加账号';
+    $('successDesc').textContent = 'Actions 正在合并进签到列表，约 30 秒后这里会显示该账号';
+    await loadAccounts();
+    setTimeout(loadAccounts, 20000);
+    setTimeout(loadAccounts, 45000);
+  } catch (e) {
+    setAddState('err', '写入失败', '失败', e.message || '请重试');
+  }
+}
+
+async function enter() {
+  token = ($('tokenInput').value || '').trim();
+  if (!token) return;
+  try {
+    await api('/api/auth', { method: 'POST' });
+    localStorage.setItem(LS_KEY, token);
+    $('gate').hidden = true;
+    $('app').hidden = false;
+    await loadAccounts();
+    await newQr();
+  } catch (e) {
+    if (String(e.message) === 'unauthorized') return;
+    $('gateHint').textContent = e.message || '连接失败';
+  }
+}
+
+$('tokenBtn').addEventListener('click', enter);
+$('tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
+$('refreshBtn').addEventListener('click', newQr);
+$('reloadBtn').addEventListener('click', () => loadAccounts().catch(() => {}));
+$('q').addEventListener('input', render);
+
+(async function boot() {
+  if (!token) { showGate(''); return; }
+  try {
+    await api('/api/auth', { method: 'POST' });
+    $('gate').hidden = true;
+    $('app').hidden = false;
+    await loadAccounts();
+    await newQr();
+  } catch (e) {
+    if (String(e.message) !== 'unauthorized') showGate(e.message || '连接失败');
+  }
+})();
+</script>
+</body>
+</html>

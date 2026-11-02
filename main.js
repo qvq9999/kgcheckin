@@ -2,6 +2,7 @@ import { printBlue, printGreen, printMagenta, printRed, printYellow } from "./ut
 import { hasSecretWriteToken, setRepoSecret } from "./utils/githubSecrets.js";
 import { maskDisplayName, maskIdentifier, sanitizeForLog, summarizeResponse } from "./utils/safeLog.js";
 import { sendNotify } from "./utils/notify.js";
+import { syncAccounts } from "./utils/syncState.js";
 import { close_api, delay, send, startService, waitForApi } from "./utils/utils.js";
 
 async function main() {
@@ -35,6 +36,8 @@ async function main() {
   const errorMsg = {}
   // 通知结果收集
   const notifyResults = []
+  // 网页端账号元数据（不含 token），签到结束后统一上报
+  const syncList = []
   let hasError = false
 
   try {
@@ -60,6 +63,7 @@ async function main() {
             vipExpiry: '未知',
             error: 'token过期或账号不存在'
           })
+          syncList.push({ userid: user.userid, lastCheckin: date, ok: false, error: 'token过期或账号不存在' })
           hasError = true
           continue
         }
@@ -143,6 +147,14 @@ async function main() {
           vipExpiry,
           error: ''
         })
+
+        syncList.push({
+          userid: user.userid,
+          nickname: userDetail.data.nickname,
+          lastCheckin: date,
+          ok: !(listenStatus === '失败' || claimCount === 0),
+          vipExpiry: vipExpiry === '未知' ? '' : vipExpiry,
+        })
       } catch (err) {
         const safeUserId = maskIdentifier(user.userid || '未知')
         printRed(`账号 ${safeUserId} 处理异常：${err && err.message ? err.message : String(err)}`)
@@ -155,6 +167,7 @@ async function main() {
           vipExpiry: '未知',
           error: err && err.message ? err.message : String(err)
         })
+        syncList.push({ userid: user.userid, lastCheckin: date, ok: false, error: '处理异常' })
         hasError = true
         continue
       }
@@ -162,6 +175,13 @@ async function main() {
 
   } finally {
     close_api(api)
+  }
+
+  // 上报账号元数据给网页（不含 token）。失败只提示，绝不影响签到结果
+  try {
+    await syncAccounts(syncList, 'checkin')
+  } catch (e) {
+    printYellow(`网页状态同步异常：${e.message}`)
   }
 
   // 更新secret <USERINFO>（使用完整 userinfo 数组，保留所有用户包括过期账号）

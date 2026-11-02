@@ -1,0 +1,18 @@
+{
+  "name": "kgcheckin-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "qrcode-generator": "^1.4.4",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-sealedbox-js": "^1.2.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.42.0"
+  }
+}
