@@ -13,7 +13,20 @@ async function main() {
   if (!USERINFO) {
     throw new Error("未配置")
   }
-  const userinfo = JSON.parse(USERINFO)
+  // allUsers 用于回写 USERINFO（必须是完整列表），users 是本次要处理的账号。
+  // ONLY_USERID 存在时只处理该账号：网页新增账号后立刻签到，且不影响其他账号。
+  const allUsers = JSON.parse(USERINFO)
+  if (!Array.isArray(allUsers)) throw new Error("USERINFO 不是数组")
+
+  const onlyUserId = String(process.env.ONLY_USERID || '').trim()
+  let users = allUsers
+  if (onlyUserId) {
+    users = allUsers.filter((u) => String(u.userid) === onlyUserId)
+    if (!users.length) {
+      throw new Error(`USERINFO 中找不到 userid=${onlyUserId}`)
+    }
+    printMagenta(`单账号模式：只处理 userid ${maskIdentifier(onlyUserId)}（共 ${allUsers.length} 个账号）`)
+  }
 
   // 启动服务并等待就绪（避免冷启动竞态导致首个请求失败）
   const api = startService()
@@ -42,7 +55,7 @@ async function main() {
 
   try {
     // 开始签到
-    for (const user of userinfo) {
+    for (const user of users) {
       // 单账号异常隔离：任何一个账号的请求/解析出错，只记录该账号失败，
       // 不影响其余账号继续执行，也保证后续通知与 secret 刷新一定能触发。
       try {
@@ -194,11 +207,11 @@ async function main() {
     printYellow(`网页状态同步异常：${e.message}`)
   }
 
-  // 更新secret <USERINFO>（使用完整 userinfo 数组，保留所有用户包括过期账号）
+  // 更新secret <USERINFO>（始终用完整账号列表 allUsers，避免单账号模式把其他账号写没了）
   let secretError = null
   if (needRefresh) {
     if (hasSecretWriteToken()) {
-      const userinfoJSON = JSON.stringify(userinfo)
+      const userinfoJSON = JSON.stringify(allUsers)
       try {
         setRepoSecret("USERINFO", userinfoJSON)
         printGreen("secret <USERINFO> token刷新成功")

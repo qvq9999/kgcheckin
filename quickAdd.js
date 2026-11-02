@@ -52,6 +52,11 @@ async function main() {
   // 同步元数据给网页（不含 token）
   await syncAccounts([{ userid, nickname: cred.nickname || '' }], 'add')
 
+  // 把 userid 交给下一步（立即签到该账号）使用
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `userid=${userid}\n`)
+  }
+
   const label = action === 'added' ? '新增' : '更新'
   printMagenta(`账号${label}成功：${cred.nickname || '(未返回昵称)'}，当前共 ${userinfo.length} 个账号（原 ${before} 个）`)
   printGreen('完成')

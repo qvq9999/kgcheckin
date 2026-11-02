@@ -22,7 +22,9 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 领取 VIP 的循环里每次成功间隔 30s，最多 8 次，单账号签到最长约 4 分钟，
+    # 加上依赖安装与合并步骤，给 15 分钟余量。
+    timeout-minutes: 15
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
@@ -31,6 +33,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: 'npm'
+          cache-dependency-path: ./api/package-lock.json
+
+      # 立即签到那一步要跑 main.js，它需要 api/ 的依赖起本地服务
+      - name: 缓存依赖
+        id: cache-npm
+        uses: actions/cache@v4
+        with:
+          path: ./api/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('./api/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: 安装依赖
+        run: npm run install
+        if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
 
       - name: 领取扫码凭证（一次性）
         env:
@@ -54,6 +72,7 @@ jobs:
           echo "已领取凭证（内容不打印，避免泄露 token）"
 
       - name: 合并写入 USERINFO
+        id: add
         env:
           USERINFO: ${{ secrets.USERINFO }}
           PAT: ${{ secrets.PAT }}
@@ -62,6 +81,19 @@ jobs:
           SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
           PENDING_FILE: ./pending.json
         run: node quickAdd.js
+
+      # 立即给刚加入的账号签到：只处理这一个 userid，其他账号完全不参与，
+      # 它们已有的签到记录不会被改写（KV 按 userid 合并）。
+      - name: 立即签到这个新账号
+        if: ${{ steps.add.outputs.userid != '' }}
+        env:
+          USERINFO: ${{ secrets.USERINFO }}
+          PAT: ${{ secrets.PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SYNC_URL: ${{ secrets.SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          ONLY_USERID: ${{ steps.add.outputs.userid }}
+        run: node main.js
 
       - name: 清理临时文件
         if: ${{ always() }}
