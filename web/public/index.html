@@ -27,7 +27,7 @@ body{
 }
 /* 整页不滚动：只有账号列表内部滚动 */
 .wrap{max-width:460px;margin:0 auto;width:100%;flex:1;min-height:0;display:flex;flex-direction:column}
-#app{flex:1;min-height:0;display:flex;flex-direction:column}
+#app,#admin{flex:1;min-height:0;display:flex;flex-direction:column}
 .card{background:var(--card);border:.5px solid var(--line);border-radius:var(--radius)}
 h1{font-size:17px;font-weight:500;margin:0}
 .sub{font-size:13px;color:var(--faint);margin:4px 0 0}
@@ -67,6 +67,8 @@ button:active{background:#f1f0ec}
 button.primary{background:var(--text);color:#fff;border-color:var(--text)}
 button:disabled{opacity:.5;cursor:not-allowed}
 button.link{border:none;background:none;color:var(--info-fg);padding:0;font-size:12px}
+button.danger{background:var(--err-bg);color:var(--err-fg);border-color:transparent;font-size:12px;padding:6px 10px;border-radius:9px}
+button.danger:active{background:#f7dada}
 .actions{display:flex;gap:8px;align-items:center;margin-top:10px}
 input[type=text],input[type=password]{
   width:100%;font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;
@@ -91,7 +93,7 @@ input:focus{border-color:var(--info-fg)}
 /* 账号列表是页面里唯一可滚动的区域 */
 .list{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:80px}
 
-/* 圆形图标按钮（刷新 / 收起） */
+/* 圆形图标按钮（刷新 / 收起 / 管理入口） */
 .iconbtn{
   width:30px;height:30px;flex:0 0 auto;padding:0;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -137,6 +139,18 @@ input:focus{border-color:var(--info-fg)}
 .success.show{display:block}
 .success .big{font-size:15px;font-weight:500}
 .success .small{font-size:12px;color:var(--faint);margin-top:4px}
+
+/* 删除确认弹窗 */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;padding:22px;z-index:20}
+.modalbox{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:340px}
+.modalbox h3{font-size:15px;font-weight:500;margin:0 0 10px}
+.modalbox .who{font-size:14px;margin:0}
+.modalbox .who b{font-weight:500}
+.modalbox .id{font-size:12px;color:var(--faint);margin:2px 0 0}
+.modalbox .warn{font-size:12px;color:var(--err-fg);margin:12px 0 0;line-height:1.5}
+.modalactions{display:flex;gap:8px;margin-top:16px}
+.modalactions button{flex:1}
+.modalactions .ok{background:var(--err-fg);color:#fff;border-color:var(--err-fg)}
 </style>
 </head>
 <body>
@@ -158,7 +172,12 @@ input:focus{border-color:var(--info-fg)}
         <h1>酷狗概念版签到</h1>
         <p class="sub" id="subline">每日 01:10 自动领取</p>
       </div>
-      <span class="chip ok" id="runChip">运行中</span>
+      <div class="row" style="gap:8px">
+        <button class="iconbtn" id="toAdmin" hidden title="账号管理" aria-label="进入账号管理">
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5.6 6h4.8M5.6 8.5h4.8M5.6 11h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="chip ok" id="runChip">运行中</span>
+      </div>
     </div>
 
     <div class="metrics">
@@ -209,19 +228,66 @@ input:focus{border-color:var(--info-fg)}
       </div>
       <div class="list" id="list"></div>
     </div>
-    <p class="foot" id="foot"></p>
+    <p class="foot"><span id="foot"></span><span id="footSep"> · </span><button class="link" id="switchMain">切换口令</button></p>
   </main>
+
+  <main id="admin" hidden>
+    <div class="between">
+      <div class="row" style="gap:10px">
+        <button class="iconbtn" id="backHome" title="返回主页" aria-label="返回主页">
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div>
+          <h1>账号管理</h1>
+          <p class="sub">删除后需重新扫码才能恢复</p>
+        </div>
+      </div>
+      <span class="chip info" id="adminCount">0 个</span>
+    </div>
+
+    <div class="card listcard" style="margin-top:12px">
+      <div class="listhead">
+        <span class="t">已登录账号 <b id="adminTotal">0</b></span>
+        <span class="row" style="gap:8px">
+          <span class="time" id="adminTime">—</span>
+          <button class="iconbtn" id="adminReload" title="刷新" aria-label="刷新账号列表">
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.9-4.16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13.8 2.2v3.1h-3.1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </span>
+      </div>
+      <div class="list" id="adminList"></div>
+    </div>
+    <p class="foot"><span id="adminFoot"></span><span> · </span><button class="link" id="switchAdmin">切换口令</button></p>
+  </main>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modalbox">
+      <h3>删除这个账号？</h3>
+      <p class="who" id="modalWho"></p>
+      <p class="id" id="modalId"></p>
+      <p class="warn">删除后该账号的登录凭证会从 USERINFO 移除，需要重新扫码才能恢复；它在网页列表里的签到记录也会一并清除。</p>
+      <div class="modalactions">
+        <button id="modalCancel">取消</button>
+        <button class="ok" id="modalOk">确认删除</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 </div>
 
 <script>
 const LS_KEY = 'kgcheckin_token';
+const LS_ROLE = 'kgcheckin_role';
 const QR_TTL = 120;
 let token = localStorage.getItem(LS_KEY) || '';
+let role = localStorage.getItem(LS_ROLE) || '';
 let state = { accounts: [], updatedAt: null };
 // 本次成功拉取的时间（点刷新就变），与 Actions 上报时间 updatedAt 分开
 let fetchedAt = null;
 let qr = { key: null, deadline: 0, timer: null, polling: false, done: false };
+// 正在删除中的 userid 集合，防止重复点
+const deleting = new Set();
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -260,9 +326,12 @@ function toast(text, isErr = false) {
 }
 
 function setSpinning(on) {
-  const btn = $('reloadBtn');
-  btn.classList.toggle('spin', Boolean(on));
-  btn.disabled = Boolean(on);
+  for (const id of ['reloadBtn', 'adminReload']) {
+    const btn = $(id);
+    if (!btn) continue;
+    btn.classList.toggle('spin', Boolean(on));
+    btn.disabled = Boolean(on);
+  }
 }
 
 function setLastResult(text, kind = 'ok') {
@@ -280,15 +349,68 @@ async function api(path, opts = {}) {
   });
   let body = null;
   try { body = await res.json(); } catch { body = null; }
-  if (res.status === 401) { showGate('口令不正确'); throw new Error('unauthorized'); }
+  if (res.status === 401) { switchToken('口令已失效，请重新输入'); throw new Error('unauthorized'); }
   if (!res.ok) throw new Error((body && body.error) || ('HTTP ' + res.status));
   return body;
 }
 
+// 口令校验单独走，不走 api()：登录失败要能显示"还可尝试 N 次 / 已锁定"
+async function checkAuth(tok) {
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Auth': tok || '' },
+    });
+    let body = null;
+    try { body = await res.json(); } catch { body = null; }
+    return { status: res.status, body };
+  } catch (e) {
+    return { status: 0, body: { error: e.message || '网络异常' } };
+  }
+}
+
 function showGate(msg) {
   $('app').hidden = true;
+  $('admin').hidden = true;
   $('gate').hidden = false;
   $('gateHint').textContent = msg || '';
+}
+
+function applyRoleUI() {
+  $('toAdmin').hidden = role !== 'admin';
+}
+
+function showMain() {
+  $('gate').hidden = true;
+  $('admin').hidden = true;
+  $('app').hidden = false;
+  applyRoleUI();
+}
+
+function showAdmin() {
+  if (role !== 'admin') { toast('需要管理员口令', true); return; }
+  $('gate').hidden = true;
+  $('app').hidden = true;
+  $('admin').hidden = false;
+  renderAdmin();
+  loadAccounts({ silent: true });
+}
+
+// 切换口令：清掉本机存的口令并回到输入页，不动任何账号数据
+function switchToken(msg) {
+  token = '';
+  role = '';
+  localStorage.removeItem(LS_KEY);
+  localStorage.removeItem(LS_ROLE);
+  clearInterval(qr.timer);
+  clearInterval(checkTimer);
+  qr = { key: null, deadline: 0, timer: null, polling: false, done: true };
+  checkTimer = null;
+  deleting.clear();
+  $('tokenInput').value = '';
+  $('tokenBtn').disabled = false;
+  showGate(msg || '');
+  try { $('tokenInput').focus(); } catch (_) {}
 }
 
 function maskId(id) {
@@ -297,18 +419,20 @@ function maskId(id) {
   return s.slice(0, 4) + '***' + s.slice(-3);
 }
 
+// VIP 只显示到期日期，不再算剩余天数（按需求 A1）
 function fmtVip(v) {
   if (!v) return 'VIP 到期未知';
-  const s = String(v).replace(/-/g, '/');
-  const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  const m = String(v).replace(/-/g, '/').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
   if (!m) return 'VIP 至 ' + String(v).slice(0, 16);
-  const d = new Date(+m[1], +m[2] - 1, +m[3]);
-  const days = Math.ceil((d - new Date()) / 86400000);
-  const base = `VIP 至 ${m[1]}/${m[2]}/${m[3]}`;
-  if (Number.isNaN(days)) return base;
-  if (days < 0) return base + '（已过期）';
-  if (days === 0) return base + '（今天）';
-  return base + `（${days} 天）`;
+  return `VIP 至 ${m[1]}/${m[2]}/${m[3]}`;
+}
+
+function signStateText(a, today) {
+  if (a.lastCheckin === today) {
+    if (a.ok === false) return '今日签到失败';
+    return a.note === 'already' ? '今日已领' : '今日已签';
+  }
+  return '今日未签';
 }
 
 function render() {
@@ -365,6 +489,111 @@ function render() {
   $('foot').textContent = upd
     ? `共 ${all.length} 个账号 · 刷新于 ${fmtAgo(fetchedAt)} · 数据更新于 ${fmtAgo(upd)}`
     : `共 ${all.length} 个账号 · 刷新于 ${fmtAgo(fetchedAt)} · 数据尚未同步`;
+
+  if (!$('admin').hidden) renderAdmin();
+}
+
+// 管理页列表：每行一个红色删除按钮
+function renderAdmin() {
+  const list = $('adminList');
+  const all = state.accounts || [];
+  const today = todayStr();
+
+  $('adminTotal').textContent = all.length;
+  $('adminCount').textContent = all.length + ' 个';
+  $('adminTime').textContent = fetchedAt ? '刷新于 ' + fmtAgo(fetchedAt) : '—';
+  $('adminFoot').textContent = all.length ? `共 ${all.length} 个账号` : '列表为空';
+
+  list.textContent = '';
+  if (!all.length) {
+    list.appendChild(el('div', 'empty', '还没有已登录的账号，回主页扫码添加'));
+    return;
+  }
+
+  for (const a of all) {
+    const item = el('div', 'item');
+    const av = el('div', 'avatar', (a.nickname || '?').slice(0, 1));
+    const body = el('div', 'body');
+    body.appendChild(el('div', 'name', a.nickname || '（未获取昵称）'));
+    const meta = el('div', 'meta');
+    meta.textContent = `${maskId(a.userid)} · ${fmtVip(a.vipExpiry)} · ${signStateText(a, today)}`;
+    body.appendChild(meta);
+
+    const right = el('div', 'right');
+    const userid = String(a.userid);
+    const btn = el('button', 'danger');
+    if (deleting.has(userid)) {
+      btn.textContent = '删除中…';
+      btn.disabled = true;
+    } else {
+      btn.textContent = '删除';
+      btn.addEventListener('click', () => askDelete(a));
+    }
+    right.appendChild(btn);
+
+    item.append(av, body, right);
+    list.appendChild(item);
+  }
+}
+
+let deletingTarget = null;
+
+function askDelete(acc) {
+  deletingTarget = acc;
+  $('modalWho').textContent = '账号：' + (acc.nickname || '（未获取昵称）');
+  $('modalId').textContent = 'userid：' + maskId(acc.userid);
+  $('modal').hidden = false;
+}
+
+function closeModal() {
+  $('modal').hidden = true;
+  deletingTarget = null;
+}
+
+async function confirmDelete() {
+  const acc = deletingTarget;
+  if (!acc) return;
+  const userid = String(acc.userid);
+  $('modalOk').disabled = true;
+  closeModal();
+
+  deleting.add(userid);
+  renderAdmin();
+  try {
+    await api('/api/remove', { method: 'POST', body: JSON.stringify({ userid }) });
+    toast('删除已提交，正在等待 Actions 处理…');
+    pollRemoved(userid);
+  } catch (e) {
+    deleting.delete(userid);
+    renderAdmin();
+    if (String(e.message) !== 'unauthorized') toast('删除失败：' + (e.message || '网络错误'), true);
+  } finally {
+    $('modalOk').disabled = false;
+  }
+}
+
+// 删除在 Actions 里执行，页面轮询直到那一行真的消失（约 15–40 秒）
+function pollRemoved(userid) {
+  let left = 24;
+  const tick = async () => {
+    left -= 1;
+    await loadAccounts({ silent: true });
+    const still = (state.accounts || []).some((a) => String(a.userid) === userid);
+    if (!still) {
+      deleting.delete(userid);
+      renderAdmin();
+      toast('已删除');
+      return;
+    }
+    if (left <= 0) {
+      deleting.delete(userid);
+      renderAdmin();
+      toast('删除已提交，仍未完成，请稍后点刷新查看', true);
+      return;
+    }
+    setTimeout(tick, 4000);
+  };
+  setTimeout(tick, 3000);
 }
 
 let refreshing = false;
@@ -392,6 +621,7 @@ function scheduleAutoRefresh(run) {
     autoLeft -= 1;
     setSpinning(true);
     $('refreshTime').textContent = '刷新中…';
+    $('adminTime').textContent = '刷新中…';
     autoTimer = setTimeout(() => { autoTimer = null; loadAccounts({ silent: true }); }, 8000);
   } else {
     autoLeft = 0;
@@ -460,6 +690,7 @@ async function newQr() {
     qr.timer = setInterval(tick, 1000);
     pollStatus();
   } catch (e) {
+    if (String(e.message) === 'unauthorized') return;
     $('qrbox').className = 'qrbox empty';
     $('qrbox').textContent = '获取失败';
     setAddState('err', '添加新账号', '二维码获取失败', e.message || '请稍后重试');
@@ -563,49 +794,65 @@ async function commit(sessionId, nickname) {
     await loadAccounts({ silent: true });
     if (userid) startCheckinPolling(userid);
   } catch (e) {
+    if (String(e.message) === 'unauthorized') return;
     setAddState('err', '写入失败', '失败', e.message || '请重试');
   }
 }
 
 async function enter() {
-  token = ($('tokenInput').value || '').trim();
-  if (!token) return;
-  try {
-    await api('/api/auth', { method: 'POST' });
+  const val = ($('tokenInput').value || '').trim();
+  if (!val) return;
+  $('tokenBtn').disabled = true;
+  $('gateHint').textContent = '';
+  const { status, body } = await checkAuth(val);
+  $('tokenBtn').disabled = false;
+
+  if (status === 200 && body && body.ok) {
+    token = val;
+    role = body.role || 'user';
     localStorage.setItem(LS_KEY, token);
-    $('gate').hidden = true;
-    $('app').hidden = false;
+    localStorage.setItem(LS_ROLE, role);
+    showMain();
     await loadAccounts({ silent: true });
     await newQr();
-  } catch (e) {
-    if (String(e.message) === 'unauthorized') return;
-    $('gateHint').textContent = e.message || '连接失败';
+    return;
   }
+  $('gateHint').textContent = (body && body.error) || '口令不正确';
 }
 
 $('tokenBtn').addEventListener('click', enter);
 $('tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
 $('refreshBtn').addEventListener('click', newQr);
 $('reloadBtn').addEventListener('click', manualRefresh);
+$('adminReload').addEventListener('click', manualRefresh);
 $('chevBtn').addEventListener('click', () => {
   const willCollapse = !$('addCard').classList.contains('collapsed');
   collapseAddCard(willCollapse);
   // 展开时如果没有可用二维码（已完成/已过期），直接换一张
   if (!willCollapse && (qr.done || !qr.key)) newQr();
 });
+$('toAdmin').addEventListener('click', showAdmin);
+$('backHome').addEventListener('click', showMain);
+$('switchMain').addEventListener('click', () => switchToken(''));
+$('switchAdmin').addEventListener('click', () => switchToken(''));
+$('modalCancel').addEventListener('click', closeModal);
+$('modalOk').addEventListener('click', confirmDelete);
+$('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
 $('q').addEventListener('input', render);
 
 (async function boot() {
   if (!token) { showGate(''); return; }
-  try {
-    await api('/api/auth', { method: 'POST' });
-    $('gate').hidden = true;
-    $('app').hidden = false;
+  const { status, body } = await checkAuth(token);
+  if (status === 200 && body && body.ok) {
+    role = body.role || 'user';
+    localStorage.setItem(LS_ROLE, role);
+    showMain();
     await loadAccounts({ silent: true });
     await newQr();
-  } catch (e) {
-    if (String(e.message) !== 'unauthorized') showGate(e.message || '连接失败');
+    return;
   }
+  if (status === 401) { switchToken('口令已失效，请重新输入'); return; }
+  showGate((body && body.error) || '连接失败');
 })();
 </script>
 </body>

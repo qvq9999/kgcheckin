@@ -1,0 +1,57 @@
+name: 删除账号
+
+# 由网页（Cloudflare Worker）以管理员口令触发。
+# USERINFO 是只写 Secret，Worker 读不到内容、无法"摘掉一个"，
+# 因此真正的过滤与写回发生在这里，写完再回调 Worker 清掉网页那条元数据。
+on:
+  workflow_dispatch:
+    inputs:
+      userid:
+        description: "要删除的 userid（非敏感，仅数字）"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# 与「快捷添加账号」共用同一个组：两个都会写 USERINFO，必须串行，
+# 否则并发 read-modify-write 会互相覆盖。
+concurrency:
+  group: userinfo-write
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 校验输入
+        env:
+          TARGET_USERID: ${{ inputs.userid }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TARGET_USERID" | grep -Eq '^[0-9]{4,20}$'; then
+            echo "::error::userid 格式不正确：只接受 4-20 位数字"
+            exit 1
+          fi
+          echo "将要删除 userid=$TARGET_USERID"
+
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 创建 Node 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: ./api/package-lock.json
+
+      - name: 从 USERINFO 移除并回写
+        env:
+          USERINFO: ${{ secrets.USERINFO }}
+          PAT: ${{ secrets.PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SYNC_URL: ${{ secrets.SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          TARGET_USERID: ${{ inputs.userid }}
+        run: node removeAccount.js

@@ -14,9 +14,9 @@ on:
 permissions:
   contents: read
 
-# 连点两次不会并发覆盖
+# 与「删除账号」共用同一个组：两者都写 USERINFO，必须串行，避免互相覆盖
 concurrency:
-  group: quick-add
+  group: userinfo-write
   cancel-in-progress: false
 
 jobs:

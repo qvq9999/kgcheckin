@@ -17,9 +17,12 @@ id = "313f50f15f35485594aa2ff180b83406"
 [vars]
 GH_REPO = "qvq9999/kgcheckin"
 ADD_WORKFLOW = "快捷添加账号.yml"
+REMOVE_WORKFLOW = "删除账号.yml"
+CHECKIN_WORKFLOW = "签到.yml"
 GH_REF = "main"
 
 # 密钥用 wrangler secret put 设置：
-#   ACCESS_TOKEN  网页访问口令
+#   ACCESS_TOKEN  通用网页口令（只能查看和添加）
+#   ADMIN_TOKEN   管理员口令（可删除账号，进管理页）
 #   SYNC_TOKEN    Actions 上报状态用的令牌
 #   GH_PAT        触发 workflow / 查运行状态的 PAT

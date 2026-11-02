@@ -41,12 +41,16 @@ function upsertUser(userinfo, loginUser, append) {
 /**
  * 保存 userinfo 到 GitHub Secret，失败时降级为日志输出
  * @param {Array} userinfo - 用户信息数组
+ * @param {{allowEmpty?: boolean}} [options] allowEmpty：允许写入空数组（删除最后一个账号时需要）
  * @returns {boolean} 是否成功写入 Secret（降级输出也算未写入）
  */
-function saveUserinfo(userinfo) {
-  if (!userinfo.length) {
+function saveUserinfo(userinfo, { allowEmpty = false } = {}) {
+  if (!userinfo.length && !allowEmpty) {
     printRed('没有可写入的账号信息，跳过 secret <USERINFO> 更新')
     return false
+  }
+  if (!userinfo.length) {
+    printYellow('账号列表已清空，将写入空数组 []（删除最后一个账号）')
   }
 
   const userinfoJSON = JSON.stringify(userinfo)
