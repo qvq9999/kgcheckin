@@ -38,16 +38,17 @@ h1{font-size:17px;font-weight:500;margin:0}
 .chip.wait{background:var(--wait-bg);color:var(--wait-fg)}
 .chip.err{background:var(--err-bg);color:var(--err-fg)}
 .chip.info{background:var(--info-bg);color:var(--info-fg)}
-.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 12px;flex:0 0 auto}
-.metric{background:#efeeea;border-radius:12px;padding:10px 12px}
-.metric .k{font-size:12px;color:var(--muted)}
-.metric .v{font-size:22px;font-weight:500;margin-top:2px}
-#addCard{padding:12px;margin-bottom:12px;flex:0 0 auto}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 10px;flex:0 0 auto}
+.metric{background:#efeeea;border-radius:10px;padding:6px 10px;display:flex;align-items:baseline;gap:8px}
+.metric .k{font-size:11px;color:var(--muted);flex:1 1 auto;min-width:0;white-space:nowrap}
+.metric .v{font-size:16px;font-weight:500;line-height:1.2}
+#addCard{padding:11px;margin-bottom:10px;flex:0 0 auto}
 /* 折叠态：只留一行，把高度让给账号列表 */
-#addCard.collapsed{padding:8px 12px}
+#addCard.collapsed{padding:8px 10px 8px 12px;display:flex;align-items:center;gap:10px;min-height:46px}
 #addCard.collapsed #addBody{display:none}
-#addCard.collapsed #addCollapsed{display:flex}
-.addline{display:none;align-items:center;justify-content:space-between;gap:10px}
+#addCard.collapsed #addCollapsed{display:flex;flex:1 1 auto;min-width:0;padding-right:0}
+#addCard.collapsed .chevbtn{position:static;flex:0 0 auto}
+.addline{display:none;align-items:center;justify-content:space-between;gap:10px;padding-right:40px}
 .addline .t{font-size:13px;font-weight:500}
 .qrbox{
   width:104px;height:104px;flex:0 0 104px;background:#fff;border:.5px solid var(--line);
@@ -72,11 +73,47 @@ input[type=text],input[type=password]{
   border:.5px solid var(--line-2);background:#fff;color:var(--text);outline:none
 }
 input:focus{border-color:var(--info-fg)}
-.searchwrap{position:relative;margin-bottom:10px;flex:0 0 auto}
+.searchwrap{position:relative;margin-bottom:8px;flex:0 0 auto}
 .searchwrap input{padding-left:34px}
 .searchwrap .icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.45;font-size:13px}
+
+/* 列表容器：标题栏固定，只有里面的 .list 滚动。
+   flex:0 1 auto = 账号少时卡片贴合内容，多了才压缩并内部滚动 */
+.listcard{display:flex;flex-direction:column;flex:0 1 auto;min-height:0;max-height:100%;overflow:hidden;margin-bottom:0}
+.listhead{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 12px;border-bottom:.5px solid var(--line);background:var(--card);
+  border-radius:var(--radius) var(--radius) 0 0;
+}
+.listhead .t{font-size:12px;color:var(--muted)}
+.listhead .t b{color:var(--text);font-weight:500}
+.listhead .time{font-size:11px;color:var(--faint)}
 /* 账号列表是页面里唯一可滚动的区域 */
-.list{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:110px}
+.list{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:80px}
+
+/* 圆形图标按钮（刷新 / 收起） */
+.iconbtn{
+  width:30px;height:30px;flex:0 0 auto;padding:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:.5px solid var(--line-2);background:#fff;color:var(--muted);cursor:pointer
+}
+.iconbtn:active{background:#f1f0ec}
+.iconbtn:disabled{opacity:.55}
+.iconbtn svg{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin svg{animation:spin .8s linear infinite}
+.chev svg{transition:transform .25s}
+#addCard.collapsed .chev svg{transform:rotate(180deg)}
+.chevbtn{position:absolute;right:10px;top:10px;z-index:2}
+
+/* 浮层提示 */
+.toast{
+  position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  max-width:86vw;padding:8px 16px;border-radius:999px;font-size:12px;
+  background:#1c1c1a;color:#fff;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9
+}
+.toast.show{opacity:1}
+.toast.err{background:var(--err-fg)}
 .item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:.5px solid var(--line)}
 .item:last-child{border-bottom:none}
 .item.hit{background:var(--info-bg)}
@@ -129,27 +166,25 @@ input:focus{border-color:var(--info-fg)}
       <div class="metric"><div class="k">今日签到</div><div class="v" id="mToday">-</div></div>
     </div>
 
-    <div class="card" id="addCard">
+    <div class="card" id="addCard" style="position:relative">
       <div class="row" id="addBody">
         <div class="qrbox" id="qrbox">获取中</div>
-        <div class="addmeta">
+        <div class="addmeta" style="padding-right:32px">
           <div class="t" id="addTitle">添加新账号</div>
           <div class="d" id="addDesc">用酷狗 APP 扫码并在手机上确认</div>
           <span class="chip wait" id="addChip">准备中</span>
           <div class="actions">
             <button id="refreshBtn">换一张</button>
-            <button class="link" id="reloadBtn">刷新账号列表</button>
-            <button class="link" id="collapseBtn">收起</button>
           </div>
         </div>
       </div>
       <div class="addline" id="addCollapsed">
         <span class="t">添加账号</span>
-        <div class="row" style="gap:8px">
-          <span class="chip ok" id="lastResult" hidden></span>
-          <button class="link" id="expandBtn">展开</button>
-        </div>
+        <span class="chip ok" id="lastResult" hidden></span>
       </div>
+      <button class="iconbtn chev chevbtn" id="chevBtn" title="收起 / 展开" aria-label="收起或展开添加账号">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5L6 8.5L10 4.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
 
     <div class="card success" id="successCard">
@@ -162,9 +197,21 @@ input:focus{border-color:var(--info-fg)}
       <input id="q" type="text" placeholder="搜索昵称或 userid，查查在不在列表里">
     </div>
 
-    <div class="card list" id="list"></div>
+    <div class="card listcard">
+      <div class="listhead">
+        <span class="t">全部账号 <b id="headCount">0</b></span>
+        <span class="row" style="gap:8px">
+          <span class="time" id="refreshTime">—</span>
+          <button class="iconbtn" id="reloadBtn" title="刷新账号列表" aria-label="刷新账号列表">
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.9-4.16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13.8 2.2v3.1h-3.1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </span>
+      </div>
+      <div class="list" id="list"></div>
+    </div>
     <p class="foot" id="foot"></p>
   </main>
+  <div class="toast" id="toast"></div>
 </div>
 
 <script>
@@ -172,6 +219,8 @@ const LS_KEY = 'kgcheckin_token';
 const QR_TTL = 120;
 let token = localStorage.getItem(LS_KEY) || '';
 let state = { accounts: [], updatedAt: null };
+// 本次成功拉取的时间（点刷新就变），与 Actions 上报时间 updatedAt 分开
+let fetchedAt = null;
 let qr = { key: null, deadline: 0, timer: null, polling: false, done: false };
 
 const $ = (id) => document.getElementById(id);
@@ -186,6 +235,34 @@ function todayStr() {
 
 function collapseAddCard(v) {
   $('addCard').classList.toggle('collapsed', Boolean(v));
+}
+
+// 相对时间：刚刚 / N 分钟前 / N 小时前
+function fmtAgo(ts) {
+  if (!ts) return '—';
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  if (Number.isNaN(mins)) return '—';
+  if (mins <= 0) return '刚刚';
+  if (mins < 60) return `${mins} 分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  return `${Math.floor(hours / 24)} 天前`;
+}
+
+let toastTimer = null;
+function toast(text, isErr = false) {
+  const box = $('toast');
+  box.textContent = text;
+  box.classList.toggle('err', Boolean(isErr));
+  box.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => box.classList.remove('show'), isErr ? 2600 : 1500);
+}
+
+function setSpinning(on) {
+  const btn = $('reloadBtn');
+  btn.classList.toggle('spin', Boolean(on));
+  btn.disabled = Boolean(on);
 }
 
 function setLastResult(text, kind = 'ok') {
@@ -281,25 +358,79 @@ function render() {
     }
   }
 
-  const upd = state.updatedAt ? new Date(state.updatedAt) : null;
-  const mins = upd ? Math.max(0, Math.round((Date.now() - upd.getTime()) / 60000)) : null;
+  const upd = state.updatedAt;
+  $('headCount').textContent = all.length;
+  $('refreshTime').textContent = fetchedAt ? '刷新于 ' + fmtAgo(fetchedAt) : '—';
   $('subline').textContent = all.length ? `${all.length} 个账号 · 每日 01:10 自动领取` : '每日 01:10 自动领取';
   $('foot').textContent = upd
-    ? `共 ${all.length} 个账号 · 数据同步于 ${mins < 1 ? '刚刚' : mins + ' 分钟前'}`
-    : '数据尚未同步，跑一次签到或添加后即可显示';
+    ? `共 ${all.length} 个账号 · 刷新于 ${fmtAgo(fetchedAt)} · 数据更新于 ${fmtAgo(upd)}`
+    : `共 ${all.length} 个账号 · 刷新于 ${fmtAgo(fetchedAt)} · 数据尚未同步`;
 }
 
-async function loadAccounts() {
-  const data = await api('/api/accounts');
-  state = { accounts: data.accounts || [], updatedAt: data.updatedAt };
-  if (data.latestRun) {
-    const r = data.latestRun;
-    const chip = $('runChip');
-    if (r.status === 'in_progress' || r.status === 'queued') { chip.className = 'chip wait'; chip.textContent = '同步中'; }
-    else if (r.conclusion === 'success') { chip.className = 'chip ok'; chip.textContent = '运行中'; }
-    else if (r.conclusion) { chip.className = 'chip err'; chip.textContent = '上次失败'; }
+let refreshing = false;
+let autoLeft = 0;
+let autoTimer = null;
+
+function applyRunChip(run) {
+  const chip = $('runChip');
+  if (!run) return;
+  if (run.status === 'in_progress' || run.status === 'queued') {
+    chip.className = 'chip wait'; chip.textContent = '同步中';
+  } else if (run.conclusion === 'success') {
+    chip.className = 'chip ok'; chip.textContent = '运行中';
+  } else if (run.conclusion) {
+    chip.className = 'chip err'; chip.textContent = '上次失败';
   }
-  render();
+}
+
+// 签到任务正在跑时，自动再拉几次，直到任务结束
+function scheduleAutoRefresh(run) {
+  clearTimeout(autoTimer);
+  autoTimer = null;
+  const running = run && (run.status === 'in_progress' || run.status === 'queued');
+  if (running && autoLeft > 0) {
+    autoLeft -= 1;
+    setSpinning(true);
+    $('refreshTime').textContent = '刷新中…';
+    autoTimer = setTimeout(() => { autoTimer = null; loadAccounts({ silent: true }); }, 8000);
+  } else {
+    autoLeft = 0;
+    setSpinning(false);
+  }
+}
+
+/**
+ * 拉取账号数据。
+ * @param {{manual?: boolean, silent?: boolean}} opts manual=用户点了刷新按钮
+ */
+async function loadAccounts({ manual = false, silent = false } = {}) {
+  if (refreshing) return;
+  refreshing = true;
+  if (!silent) {
+    setSpinning(true);
+    toast('刷新中…');
+  }
+  try {
+    const data = await api('/api/accounts?t=' + Date.now());
+    state = { accounts: data.accounts || [], updatedAt: data.updatedAt, latestRun: data.latestRun || null };
+    fetchedAt = Date.now();
+    applyRunChip(data.latestRun);
+    render();
+    if (manual) toast('已刷新');
+    scheduleAutoRefresh(data.latestRun);
+  } catch (e) {
+    if (String(e.message) === 'unauthorized') return;
+    setSpinning(false);
+    clearTimeout(autoTimer); autoTimer = null; autoLeft = 0;
+    if (!silent) toast('刷新失败：' + (e.message || '网络错误'), true);
+  } finally {
+    refreshing = false;
+  }
+}
+
+function manualRefresh() {
+  autoLeft = 10; // 允许后续最多自动追 10 次（约 80 秒）
+  loadAccounts({ manual: true });
 }
 
 function setAddState(kind, title, chipText, desc) {
@@ -429,7 +560,7 @@ async function commit(sessionId, nickname) {
     $('successCard').classList.add('show');
     $('successTitle').textContent = nickname ? `已添加「${nickname}」` : '已添加账号';
     $('successDesc').textContent = '正在合并进签到列表并签到该账号…';
-    await loadAccounts();
+    await loadAccounts({ silent: true });
     if (userid) startCheckinPolling(userid);
   } catch (e) {
     setAddState('err', '写入失败', '失败', e.message || '请重试');
@@ -444,7 +575,7 @@ async function enter() {
     localStorage.setItem(LS_KEY, token);
     $('gate').hidden = true;
     $('app').hidden = false;
-    await loadAccounts();
+    await loadAccounts({ silent: true });
     await newQr();
   } catch (e) {
     if (String(e.message) === 'unauthorized') return;
@@ -455,12 +586,12 @@ async function enter() {
 $('tokenBtn').addEventListener('click', enter);
 $('tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
 $('refreshBtn').addEventListener('click', newQr);
-$('reloadBtn').addEventListener('click', () => loadAccounts().catch(() => {}));
-$('collapseBtn').addEventListener('click', () => collapseAddCard(true));
-$('expandBtn').addEventListener('click', () => {
-  collapseAddCard(false);
+$('reloadBtn').addEventListener('click', manualRefresh);
+$('chevBtn').addEventListener('click', () => {
+  const willCollapse = !$('addCard').classList.contains('collapsed');
+  collapseAddCard(willCollapse);
   // 展开时如果没有可用二维码（已完成/已过期），直接换一张
-  if (qr.done || !qr.key) newQr();
+  if (!willCollapse && (qr.done || !qr.key)) newQr();
 });
 $('q').addEventListener('input', render);
 
@@ -470,7 +601,7 @@ $('q').addEventListener('input', render);
     await api('/api/auth', { method: 'POST' });
     $('gate').hidden = true;
     $('app').hidden = false;
-    await loadAccounts();
+    await loadAccounts({ silent: true });
     await newQr();
   } catch (e) {
     if (String(e.message) !== 'unauthorized') showGate(e.message || '连接失败');
