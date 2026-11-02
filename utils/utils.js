@@ -33,8 +33,12 @@ async function waitForApi(base = 'http://127.0.0.1:3000', timeoutMs = 20000) {
 
 /** 启动 api 服务（detached 使其成为独立进程组，便于整组强杀） */
 function startService() {
-  const api = spawn('npm', ['run', 'apiService'], {
+  // Windows 下 npm 是 npm.cmd，不带 shell 直接 spawn 会 ENOENT；
+  // Linux/POSIX 下走原来的直接 spawn，行为不变。
+  const isWin = process.platform === 'win32'
+  const api = spawn(isWin ? 'npm.cmd' : 'npm', ['run', 'apiService'], {
     detached: true,
+    shell: isWin,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 

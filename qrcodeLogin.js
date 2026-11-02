@@ -19,6 +19,10 @@ const SUMMARY_FILE = process.env.GITHUB_STEP_SUMMARY || ''
 const QR_DIR = './qr'
 const KEYS_FILE = './qrkeys.json'
 
+// 等待扫码的总时长。酷狗二维码实测有效约 2 分钟（本地实测 ≥118s 仍为“待扫描”），
+// 这里留出 150s 的轮询窗口，超时后如实报错而不是假装成功。
+const WAIT_DEADLINE_MS = 150 * 1000
+
 /**
  * 向 GitHub Step Summary 追加 Markdown 内容。
  * 非 Actions 环境（本地运行）时 SUMMARY_FILE 为空，自动跳过。
@@ -137,6 +141,26 @@ function resolveNumber() {
 }
 
 /**
+ * 校验拿到的 token 是否真能鉴权。
+ * 扫码成功只代表酷狗发了凭证，凭证是否可用要靠 /user/detail 验证，
+ * 否则会往 USERINFO 里写入一条“假登录”，签到阶段才炸。
+ * @param {string|number} userid
+ * @param {string} token
+ * @returns {Promise<{ok: boolean, nickname?: string}>}
+ */
+async function verifyToken(userid, token) {
+  try {
+    const res = await send(`/user/detail?timestrap=${Date.now()}`, "GET", {
+      cookie: `token=${token}; userid=${userid}`,
+    })
+    const nickname = res?.data?.nickname
+    return { ok: Boolean(nickname), nickname }
+  } catch (e) {
+    return { ok: false }
+  }
+}
+
+/**
  * 模式一：生成二维码（PNG + HTML），随后立即结束 step。
  * step 结束后 Release 直链即可使用，用户浏览器打开直接扫码。
  */
@@ -213,6 +237,7 @@ async function genMode() {
 
 /**
  * 模式二：读取已生成的二维码密钥，轮询等待用户扫码确认
+ * @returns {Promise<{ok: boolean, saved: boolean}>}
  */
 async function waitMode() {
   const api = startService()
@@ -231,7 +256,21 @@ async function waitMode() {
   const { number, keys } = parsed
   const USERINFO = process.env.USERINFO
   const APPEND_USER = process.env.APPEND_USER
-  const userinfo = (USERINFO && APPEND_USER == "是") ? JSON.parse(USERINFO) : []
+
+  // USERINFO 解析失败要给出人话错误，而不是抛一个 JSON 语法错误
+  let userinfo = []
+  if (USERINFO && APPEND_USER == "是") {
+    try {
+      const parsedUserinfo = JSON.parse(USERINFO)
+      if (!Array.isArray(parsedUserinfo)) throw new Error('不是数组')
+      userinfo = parsedUserinfo
+      printMagenta(`已读取现有账号 ${userinfo.length} 个，本次为追加模式`)
+    } catch (e) {
+      throw new Error(`secret <USERINFO> 内容不是合法 JSON 数组，无法追加账号：${e.message}`)
+    }
+  } else if (USERINFO && APPEND_USER != "是") {
+    printYellow('未选择「追加新账号」：本次登录会覆盖 secret <USERINFO> 中的现有账号')
+  }
 
   const results = [] // 收集每个账号的扫码结果用于 Summary
 
@@ -240,55 +279,65 @@ async function waitMode() {
       const qrcode = keys[n]
       if (!qrcode) {
         printRed(`第 ${n + 1}/${number} 个账号的二维码密钥缺失，跳过`)
-        results.push({ index: n + 1, status: '密钥缺失' })
+        results.push({ index: n + 1, ok: false, status: '密钥缺失' })
         continue
       }
       printMagenta(`\n正在等待第 ${n + 1}/${number} 个账号扫码登录...`)
-      let loggedIn = false
-      let expireFlag = false
-      for (let i = 0; i < 30; i++) {
-        const timestrap = Date.now();
-        const res = await send(`/login/qr/check?key=${qrcode}&timestrap=${timestrap}`, "GET", {})
+      let outcome = null // { ok, status }
+      const startedAt = Date.now()
+
+      while (Date.now() - startedAt < WAIT_DEADLINE_MS) {
+        const res = await send(`/login/qr/check?key=${qrcode}&timestrap=${Date.now()}`, "GET", {})
         const status = res?.data?.status
-        switch (status) {
-          case 0:
-            printYellow("二维码已过期，请重新运行工作流生成新二维码")
-            expireFlag = true
-            break
-          case 1:
-            // 未扫描二维码
-            break
-          case 2:
-            // 二维码未确认，请点击确认登录
-            break
-          case 4:
-            printGreen("登录成功！")
-            upsertUser(userinfo, { userid: res.data.userid, token: res.data.token }, APPEND_USER == "是")
-            loggedIn = true
-            break
-          default:
-            printRed("请求出错")
-            console.dir(summarizeResponse(res), { depth: null })
-        }
-        if (loggedIn || expireFlag) {
+
+        // 0=已过期（接口此时可能直接返回 status:0 且无 data，两种都要认）
+        if (status === 0 || res?.status === 0) {
+          printYellow("二维码已过期，请重新运行工作流生成新二维码")
+          outcome = { ok: false, status: '❌ 二维码过期（请重新运行并尽快扫码）' }
           break
         }
-        if (i === 29) {
-          printRed("等待超时\n")
+
+        // 4=授权成功，但酷狗给的凭证仍要用 /user/detail 验一次
+        if (status === 4) {
+          const userid = res.data.userid
+          const token = res.data.token
+          printGreen("扫码已确认，正在校验登录凭证...")
+          const verify = await verifyToken(userid, token)
+          if (!verify.ok) {
+            printRed("登录凭证校验失败（token 无法通过 /user/detail 鉴权），不写入 USERINFO")
+            outcome = { ok: false, status: '❌ 凭证无效（扫码成功但 token 不可用）' }
+            break
+          }
+          printGreen(`登录成功！账号：${verify.nickname || '(未返回昵称)'}`)
+          const action = upsertUser(userinfo, { userid, token }, APPEND_USER == "是")
+          outcome = {
+            ok: action !== 'skipped',
+            status: action === 'added'
+              ? '✅ 登录成功（新增账号）'
+              : (action === 'updated' ? '✅ 登录成功（更新已有账号）' : '❌ 凭证缺失')
+          }
+          break
         }
-        // 前 10 次用 3 秒间隔（快速响应），之后用 5 秒间隔
-        await delay(i < 10 ? 3000 : 5000)
+
+        // 1=未扫描 2=已扫描待确认，继续等
+        await delay(Date.now() - startedAt < 30000 ? 3000 : 4000)
       }
-      results.push({
-        index: n + 1,
-        status: loggedIn ? '✅ 登录成功' : (expireFlag ? '❌ 二维码过期' : '❌ 等待超时')
-      })
+
+      if (!outcome) {
+        printRed("等待超时\n")
+        outcome = { ok: false, status: '❌ 等待超时（未扫码或未确认）' }
+      }
+      results.push({ index: n + 1, ...outcome })
     }
-    saveUserinfo(userinfo)
+
+    const saved = saveUserinfo(userinfo)
+    const ok = results.length > 0 && results.every(r => r.ok)
 
     // 写入扫码结果到 Summary
     const resultLines = results.map(r => `- 账号 ${r.index}/${number}：${r.status}`).join('\n')
-    appendSummary(`### 扫码结果\n\n${resultLines}`)
+    appendSummary(`### 扫码结果\n\n${resultLines}\n\n${saved ? '✅ 已写入 secret `USERINFO`' : '❌ 未能写入 secret `USERINFO`（见日志）'}`)
+
+    return { ok, saved }
   } finally {
     close_api(api)
   }
@@ -296,7 +345,15 @@ async function waitMode() {
 
 const mode = process.argv[2] || 'gen'
 if (mode === 'wait') {
-  waitMode().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1) })
+  waitMode()
+    .then(({ ok, saved }) => {
+      if (!ok || !saved) {
+        console.error('::error::扫码登录未完全成功，或账号信息未能写入 secret <USERINFO>')
+        process.exit(2)
+      }
+      process.exit(0)
+    })
+    .catch(e => { console.error(e); process.exit(1) })
 } else {
   genMode().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1) })
 }

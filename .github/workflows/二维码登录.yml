@@ -10,7 +10,7 @@ on:
         description: "是否追加新账号？（不删除已存在账号信息）"
         required: true
         type: choice
-        default: "否"
+        default: "是"
         options:
           - 是
           - 否
@@ -63,6 +63,15 @@ jobs:
       - name: 安装依赖
         run: npm run install
         if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+
+      - name: 校验 PAT 可写 secret（避免扫码后才发现存不进去）
+        id: pat
+        # 选择「手动输出 USERINFO」时不依赖自动写入，无需预检
+        if: ${{ github.event.inputs.print_userinfo != '是' }}
+        env:
+          PAT: ${{ secrets.PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node probePat.js
 
       # ════════════════════════════════════════════
       #   步骤一：生成二维码 → PNG + Summary + HTML 登录页
