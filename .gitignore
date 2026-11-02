@@ -25,3 +25,6 @@ web/.preview/
 
 # 本地项目记忆（不提交）
 .workbuddy/
+
+# 本地保存的 Worker/Pages 密钥（切勿提交）
+.secrets.local

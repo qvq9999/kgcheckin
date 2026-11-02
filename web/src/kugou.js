@@ -101,30 +101,3 @@ export async function checkQrKey(key) {
     nickname: data.nickname,
   }
 }
-
-/**
- * 用 token 校验账号是否真的可用（避免把无效凭证写进 USERINFO）
- * 走 gateway 的 /user/detail，与签到脚本用的接口一致。
- * @param {string|number} userid
- * @param {string} token
- */
-export async function verifyAccount(userid, token) {
-  const url = `https://gateway.kugou.com/user/detail?dfid=${DFID}&appid=${APPID}&clientver=${CLIENTVER}&mid=${MID}&uuid=${UUID}&userid=${userid}&token=${encodeURIComponent(token)}&clienttime=${Math.floor(Date.now() / 1000)}`
-  const resp = await fetch(url, {
-    headers: {
-      'User-Agent': UA,
-      dfid: DFID,
-      mid: MID,
-      cookie: `token=${token}; userid=${userid}`,
-    },
-  })
-  const text = await resp.text()
-  let body
-  try {
-    body = JSON.parse(text)
-  } catch {
-    return { ok: false, nickname: null, raw: text.slice(0, 200) }
-  }
-  const nickname = body?.data?.nickname || null
-  return { ok: Boolean(nickname), nickname, raw: null }
-}

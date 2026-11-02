@@ -153,12 +153,14 @@ export default {
         if (!authed(request, env)) return bad('口令不正确', 401)
         const state = await readState(env)
         let run = null
+        let runError = null
         try {
           run = await latestRun({ token: env.GH_PAT, repo: env.GH_REPO, workflow: env.ADD_WORKFLOW || '快捷添加账号.yml' })
-        } catch {
-          run = null
+        } catch (e) {
+          // 只暴露状态码级信息，便于排查 PAT 失效，不泄露令牌本身
+          runError = e && e.message ? String(e.message).slice(0, 200) : String(e)
         }
-        return json({ ok: true, ...state, latestRun: run })
+        return json({ ok: true, ...state, latestRun: run, runError, hasPat: Boolean(env.GH_PAT) })
       }
 
       if (path === '/internal/sync') {
