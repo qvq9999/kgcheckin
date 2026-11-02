@@ -1,13 +1,17 @@
-# 网页控制台（Cloudflare Worker）
+# 网页控制台（Cloudflare Pages / Worker 双入口）
 
-线上地址：`https://kgcheckin-web.18937159565.workers.dev`
+**主入口（推荐）**：`https://kgcheckin-console.pages.dev`
+备用入口：`https://kgcheckin-web.18937159565.workers.dev`
+
+两个入口跑的是同一份 `src/index.js`，共用同一个 KV 命名空间，数据完全一致。
+之所以保留两个：`*.workers.dev` 在部分运营商会被 DNS 污染（详见「常见问题」），
+Pages 走 `*.pages.dev` 更稳，可互为备份。
 
 手机上打开 → 输一次访问口令 → 扫码确认 → 账号自动进仓库的 `USERINFO` → 每晚 01:10 定时签到。
 另外可查看已添加账号的昵称、userid、今日签到状态、**VIP 到期时间**，并支持按昵称/userid 搜索。
 
-> 备注：曾短暂部署过 Cloudflare Pages 版本（`kgcheckin-console.pages.dev`），已按要求删除，
-> 现在只保留 Worker 这一个入口。若日后需要备用入口，把 `functions/[[path]].js` 加回并
-> `wrangler pages deploy` 即可，`src/` 里的逻辑无需改动。
+> 配置文件约定：`wrangler.toml` 是 **Pages** 配置（Pages 只认这个文件名，不能用 `-c` 指定别的）；
+> Worker 配置在 `wrangler.worker.toml`，部署时用 `-c` 显式指定。
 
 ## 安全边界（重要）
 
@@ -30,21 +34,37 @@
 ```bash
 cd web
 npm install      # 若卡在 workerd 下载，加 --registry=https://registry.npmmirror.com
-
 npx wrangler login
-npx wrangler kv namespace create STATE      # 仅首次，把 id 填进 wrangler.toml
+npx wrangler kv namespace create STATE      # 仅首次，把 id 填进两份配置文件
+```
+
+**Pages（主入口）**
+
+```bash
+npx wrangler pages project create kgcheckin-console --production-branch main   # 仅首次
+npx wrangler pages secret put ACCESS_TOKEN --project-name kgcheckin-console
+npx wrangler pages secret put SYNC_TOKEN   --project-name kgcheckin-console
+npx wrangler pages secret put GH_PAT       --project-name kgcheckin-console
+npx wrangler pages deploy --project-name kgcheckin-console --branch main --commit-dirty=true
+```
+
+**Worker（备用入口）**
+
+```bash
 npx wrangler secret put ACCESS_TOKEN
 npx wrangler secret put SYNC_TOKEN
 npx wrangler secret put GH_PAT
-npx wrangler deploy
+npx wrangler deploy -c wrangler.worker.toml
 ```
+
+> Pages 改完密钥要**重新 deploy** 才生效；Worker 改密钥即时生效。
 
 仓库侧 Secrets（Settings → Secrets and variables → Actions）：
 
 | Secret | 值 |
 |---|---|
-| `SYNC_URL` | `https://kgcheckin-web.18937159565.workers.dev` |
-| `SYNC_TOKEN` | 与 `wrangler secret put SYNC_TOKEN` 完全一致 |
+| `SYNC_URL` | `https://kgcheckin-console.pages.dev`（两个入口共用同一 KV，填哪个都行） |
+| `SYNC_TOKEN` | 与两边的 `SYNC_TOKEN` 完全一致 |
 
 ## 工作流程
 

@@ -1,0 +1,25 @@
+# Worker 配置：wrangler deploy -c wrangler.worker.toml
+name = "kgcheckin-web"
+main = "src/index.js"
+compatibility_date = "2025-10-01"
+workers_dev = true
+
+# 静态页面：assets-first 路由，命中不到文件才进 Worker（/api/* 由 Worker 处理）
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# KV：存账号元数据 + 扫码会话
+[[kv_namespaces]]
+binding = "STATE"
+id = "313f50f15f35485594aa2ff180b83406"
+
+[vars]
+GH_REPO = "qvq9999/kgcheckin"
+ADD_WORKFLOW = "快捷添加账号.yml"
+GH_REF = "main"
+
+# 密钥用 wrangler secret put 设置：
+#   ACCESS_TOKEN  网页访问口令
+#   SYNC_TOKEN    Actions 上报状态用的令牌
+#   GH_PAT        触发 workflow / 查运行状态的 PAT
