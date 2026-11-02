@@ -216,6 +216,7 @@ async function mergeAccounts(env, incoming, { touch = true, source = 'add' } = {
     if (item.nickname) next.nickname = String(item.nickname)
     if (item.lastCheckin) next.lastCheckin = String(item.lastCheckin)
     if (typeof item.ok === 'boolean') next.ok = item.ok
+    if (item.note !== undefined) next.note = String(item.note)
     if (item.vipExpiry) next.vipExpiry = String(item.vipExpiry)
     if (item.error) next.error = String(item.error)
     byId.set(userid, next)

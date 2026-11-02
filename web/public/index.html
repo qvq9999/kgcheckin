@@ -227,9 +227,14 @@ function render() {
 
       const right = el('div', 'right');
       let chip;
-      if (a.lastCheckin === today && a.ok !== false) chip = el('span', 'chip ok', '今日已签');
-      else if (a.ok === false) chip = el('span', 'chip err', '签到失败');
-      else chip = el('span', 'chip wait', '待签到');
+      if (a.lastCheckin === today && a.ok !== false) {
+        // note=already 表示今天早些时候已经领过，不是失败
+        chip = el('span', 'chip ok', a.note === 'already' ? '今日已领' : '今日已签');
+      } else if (a.ok === false) {
+        chip = el('span', 'chip err', '签到失败');
+      } else {
+        chip = el('span', 'chip wait', '待签到');
+      }
       right.appendChild(chip);
 
       item.append(av, body, right);

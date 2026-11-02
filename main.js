@@ -106,6 +106,8 @@ async function main() {
         printYellow("开始领取VIP...")
         let claimCount = 0
         let claimTotal = 0
+        // 今天已经领过 / 次数用完，属于"正常状态"，不是失败
+        let quotaExhausted = false
         for (let i = 1; i <= 8; i++) {
           // ad获取vip
           const ad = await send(`/youth/vip?timestrap=${Date.now()}`, "GET", headers)
@@ -118,6 +120,7 @@ async function main() {
             }
           } else if (ad.error_code === 30002) {
             printGreen("今天次数已用光")
+            quotaExhausted = true
             break
           } else {
             printRed(`第${i}次领取失败`)
@@ -139,11 +142,16 @@ async function main() {
           hasError = true
         }
 
+        // 今天已领过（听歌接口返回"今日已领取"或领取接口返回"次数已用光"）都算正常完成，
+        // 只是本次没有新增领取数，不能记成失败。
+        const alreadyDone = listenStatus === '今日已领取' || quotaExhausted
+        const accountOk = listenStatus !== '失败' && (claimCount > 0 || alreadyDone)
+
         notifyResults.push({
           nickname: safeNickname,
-          status: listenStatus === '失败' || claimCount === 0 ? '部分失败' : '成功',
+          status: accountOk ? '成功' : '部分失败',
           listen: listenStatus,
-          vipClaim: `${claimCount}/${claimTotal}`,
+          vipClaim: alreadyDone && claimCount === 0 ? '今日已领' : `${claimCount}/${claimTotal}`,
           vipExpiry,
           error: ''
         })
@@ -152,7 +160,9 @@ async function main() {
           userid: user.userid,
           nickname: userDetail.data.nickname,
           lastCheckin: date,
-          ok: !(listenStatus === '失败' || claimCount === 0),
+          ok: accountOk,
+          // note=already 表示今天早就领过了，页面显示"今日已领"而不是失败
+          note: alreadyDone && claimCount === 0 ? 'already' : '',
           vipExpiry: vipExpiry === '未知' ? '' : vipExpiry,
         })
       } catch (err) {
