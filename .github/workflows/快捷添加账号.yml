@@ -84,10 +84,12 @@ jobs:
 
       # 立即给刚加入的账号签到：只处理这一个 userid，其他账号完全不参与，
       # 它们已有的签到记录不会被改写（KV 按 userid 合并）。
+      # 注意：这里必须用 USERINFO_FILE 而不是 secrets.USERINFO —— 同一个 job 内
+      # secrets 在任务开始时就固定了，上一步刚写入的新账号不会出现在 secret 里。
       - name: 立即签到这个新账号
         if: ${{ steps.add.outputs.userid != '' }}
         env:
-          USERINFO: ${{ secrets.USERINFO }}
+          USERINFO_FILE: ./userinfo.json
           PAT: ${{ secrets.PAT }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           SYNC_URL: ${{ secrets.SYNC_URL }}
@@ -97,4 +99,4 @@ jobs:
 
       - name: 清理临时文件
         if: ${{ always() }}
-        run: rm -f pending.json
+        run: rm -f pending.json userinfo.json

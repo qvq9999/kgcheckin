@@ -57,6 +57,12 @@ async function main() {
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `userid=${userid}\n`)
   }
 
+  // 同时把合并后的完整列表写成文件：同一个 job 内 secrets.USERINFO 不会刷新，
+  // 下一步只能靠文件拿到包含新账号的列表。
+  const outFile = process.env.USERINFO_OUT_FILE || './userinfo.json'
+  fs.writeFileSync(outFile, JSON.stringify(userinfo), { mode: 0o600 })
+  printGreen(`已写出账号列表到 ${outFile}，供下一步单账号签到使用`)
+
   const label = action === 'added' ? '新增' : '更新'
   printMagenta(`账号${label}成功：${cred.nickname || '(未返回昵称)'}，当前共 ${userinfo.length} 个账号（原 ${before} 个）`)
   printGreen('完成')

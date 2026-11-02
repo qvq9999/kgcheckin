@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { printBlue, printGreen, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { hasSecretWriteToken, setRepoSecret } from "./utils/githubSecrets.js";
 import { maskDisplayName, maskIdentifier, sanitizeForLog, summarizeResponse } from "./utils/safeLog.js";
@@ -8,14 +9,27 @@ import { close_api, delay, send, startService, waitForApi } from "./utils/utils.
 async function main() {
 
   const USERINFO = process.env.USERINFO
+  // 优先用文件：Actions 里 secrets 在任务开始时就固定了，
+  // 同一个 job 内刚写入的新账号不会出现在后续步骤的 secrets.USERINFO 中，
+  // 因此上一步会把合并后的完整列表落到文件里传进来。
+  const USERINFO_FILE = process.env.USERINFO_FILE
+  let rawUserinfo = USERINFO
+  if (USERINFO_FILE) {
+    try {
+      rawUserinfo = fs.readFileSync(USERINFO_FILE, 'utf8')
+      printMagenta(`从文件读取账号列表：${USERINFO_FILE}`)
+    } catch (e) {
+      throw new Error(`读取 USERINFO_FILE 失败：${e.message}`)
+    }
+  }
   // 刷新token
   let needRefresh = false
-  if (!USERINFO) {
+  if (!rawUserinfo) {
     throw new Error("未配置")
   }
   // allUsers 用于回写 USERINFO（必须是完整列表），users 是本次要处理的账号。
   // ONLY_USERID 存在时只处理该账号：网页新增账号后立刻签到，且不影响其他账号。
-  const allUsers = JSON.parse(USERINFO)
+  const allUsers = JSON.parse(rawUserinfo)
   if (!Array.isArray(allUsers)) throw new Error("USERINFO 不是数组")
 
   const onlyUserId = String(process.env.ONLY_USERID || '').trim()
