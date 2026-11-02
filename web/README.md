@@ -15,16 +15,30 @@ Pages 走 `*.pages.dev` 更稳，可互为备份。
 
 ## 安全边界（重要）
 
-页面**只做两件事**：
+页面**只做三件事**：
 
 1. 扫码获取酷狗登录凭证，交给 Actions 落库；
-2. 读取 Actions 上报的账号元数据并展示。
+2. 读取 Actions 上报的账号元数据并展示；
+3. 管理员口令下，触发固定的 `删除账号.yml` 删除某个账号。
 
 页面对仓库**没有任何修改配置的能力**：没有写 Secret、改 workflow、改仓库设置的接口。
-唯一对 GitHub 的写操作是「触发一次固定的 `快捷添加账号.yml`」，凭证经 KV 一次性队列交给 Actions。
+唯一对 GitHub 的写操作是「触发一次固定的 workflow」，凭证经 KV 一次性队列交给 Actions。
 
-- 所有 `/api/*` 需访问口令 `ACCESS_TOKEN`
+- 所有 `/api/*` 需口令：`ACCESS_TOKEN`（通用）或 `ADMIN_TOKEN`（管理员）
 - `/internal/*` 仅接受 `SYNC_TOKEN`（Actions 专用）
+
+| 口令 | 环境变量 | 能做什么 |
+|---|---|---|
+| 通用 | `ACCESS_TOKEN` | 查看账号、扫码添加 |
+| 管理员 | `ADMIN_TOKEN` | 以上全部 + 进入「账号管理」页删除账号 |
+
+管理员登录后**默认也落在普通主页**，右上角多一个「管理」图标进入管理页；管理页左上角
+返回主页，两页底部都有「切换口令」（清掉本机口令回到输入页，不动任何账号数据）。
+
+**登录限流**：同一 IP 连续输错 3 次锁 10 分钟（KV 计数，`expirationTtl` 自动过期）。
+锁定期内即使口令正确也拒绝。计数器存在 `authfail:<ip>` / `authlock:<ip>` 两个键上。
+
+> 6 位纯数字口令本身强度很低，限流是必要的兜底，不要把管理员口令发给别人。
 
 `GH_PAT` 目前复用了仓库的 classic 令牌（repo + workflow 权限）。如要收紧，换成
 **细粒度令牌、仅本仓库、只给 Actions 读写**后执行 `wrangler secret put GH_PAT` 即可，代码不用动。
@@ -116,10 +130,38 @@ npx wrangler dev
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/auth` | 校验访问口令 |
+| POST | `/api/auth` | 校验口令，返回 `role`（user / admin）；错误限流 |
 | POST | `/api/qr/new` | 生成二维码（key + SVG） |
-| GET | `/api/qr/status` | 查询扫码状态；成功返回一次性 sessionId |
-| POST | `/api/commit` | 凭证入队 + 触发 Actions |
+| GET | `/api/qr/status` | 查询扫码状态；成功返回一次性 sessionId 与 `existed` |
+| POST | `/api/commit` | 凭证入队 + 触发 Actions；返回 `existed` |
 | GET | `/api/accounts` | 账号元数据（昵称 / 签到状态 / VIP 到期 / 最近运行） |
+| POST | `/api/remove` | 删除账号（仅 admin）→ 触发 `删除账号.yml` |
 | GET | `/internal/pending` | Actions 领取凭证（Bearer SYNC_TOKEN） |
 | POST | `/internal/sync` | Actions 上报账号状态（Bearer SYNC_TOKEN） |
+| POST | `/internal/remove` | Actions 删完 USERINFO 后清 KV 那一条（Bearer SYNC_TOKEN） |
+
+## 删除账号
+
+`USERINFO` 是只写 Secret，Worker 读不到内容，所以删除必须在 Actions 里做：
+
+```
+页面「账号管理」→ 二次确认 → POST /api/remove（校验 admin）
+  → 触发 删除账号.yml
+  → removeAccount.js 读出 USERINFO、过滤掉该 userid、写回（允许写空数组 []）
+  → POST /internal/remove 清掉 KV 里那条元数据
+  → 页面轮询到那一行消失（约 15–40 秒）
+```
+
+保护：有任务在跑（快捷添加 / 签到）时接口直接返回 409；两个会写 `USERINFO` 的 workflow
+共用 `concurrency: userinfo-write` 串行执行，避免并发 read-modify-write 互相覆盖。
+
+## 重复扫码同一个账号
+
+不改任何代码就已经是幂等的：`upsertUser` 命中已有 userid 时只更新 token，不新增条目。
+
+页面会提前告知：`/api/qr/status` 返回 `existed=true` 时，扫码卡片显示
+「该账号已在列表中，正在更新登录凭证并重新签到」；提交成功后标题写
+「「昵称」已存在，登录凭证已更新」，而不是假的「已添加」。
+
+适用场景：cookie/token 过期后重新扫码、换了设备重新登录、误扫一次——都会走更新而不是重复插入。
+

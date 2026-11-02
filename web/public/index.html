@@ -722,8 +722,13 @@ async function pollStatus() {
       if (data.status === 4) {
         qr.done = true;
         clearInterval(qr.timer);
-        setAddState('info', '正在写入', '提交中', '正在把账号加入签到列表');
-        await commit(data.sessionId, data.nickname);
+        setAddState(
+          'info',
+          data.existed ? '账号已存在' : '正在写入',
+          '提交中',
+          data.existed ? '该账号已在列表中，正在更新登录凭证并重新签到' : '正在把账号加入签到列表'
+        );
+        await commit(data.sessionId, data.nickname, data.existed);
         return;
       }
       if (data.status === 0) {
@@ -779,18 +784,29 @@ function startCheckinPolling(userid) {
   checkTimer = setInterval(tickPoll, 5000);
 }
 
-async function commit(sessionId, nickname) {
+async function commit(sessionId, nickname, existed) {
   try {
     const res = await api('/api/commit', { method: 'POST', body: JSON.stringify({ sessionId }) });
     const userid = res && res.userid ? String(res.userid) : '';
-    setAddState('ok', '添加成功', '已提交', '正在合并并签到该账号');
+    // 以提交时刻的判定为准（扫码到提交之间可能已被别人加进去）
+    const dup = res && typeof res.existed === 'boolean' ? res.existed : Boolean(existed);
+    const who = nickname || (res && res.nickname) || '';
+
+    if (dup) {
+      // 重复扫码同一个账号：只刷新 token，不新增条目，也不会动其他账号
+      setAddState('ok', '登录已更新', '已更新', '已刷新该账号的登录凭证，正在重新签到');
+      $('successTitle').textContent = who ? `「${who}」已存在，登录凭证已更新` : '该账号已存在，登录凭证已更新';
+      $('successDesc').textContent = '未新增账号条目，正在用新凭证重新签到…';
+    } else {
+      setAddState('ok', '添加成功', '已提交', '正在合并并签到该账号');
+      $('successTitle').textContent = who ? `已添加「${who}」` : '已添加账号';
+      $('successDesc').textContent = '正在合并进签到列表并签到该账号…';
+    }
     $('qrbox').className = 'qrbox empty';
     $('qrbox').textContent = '已完成';
     collapseAddCard(true);
     setLastResult('处理中', 'wait');
     $('successCard').classList.add('show');
-    $('successTitle').textContent = nickname ? `已添加「${nickname}」` : '已添加账号';
-    $('successDesc').textContent = '正在合并进签到列表并签到该账号…';
     await loadAccounts({ silent: true });
     if (userid) startCheckinPolling(userid);
   } catch (e) {

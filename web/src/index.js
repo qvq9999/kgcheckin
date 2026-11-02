@@ -179,7 +179,11 @@ export default {
             }),
             { expirationTtl: SESSION_TTL }
           )
-          return json({ ok: true, status: 4, nickname: st.nickname || '', sessionId: id })
+          // 重复扫码同一个账号：这里先告诉页面"已经在列表里"，
+          // 页面就能提示"将更新登录凭证"而不是假装新增
+          const known = await readState(env)
+          const existed = known.accounts.some((a) => String(a.userid) === String(st.userid))
+          return json({ ok: true, status: 4, nickname: st.nickname || '', sessionId: id, existed })
         }
         return json({ ok: true, status: st.status ?? 0 })
       }
@@ -195,6 +199,9 @@ export default {
         if (!raw) return bad('登录已过期，请重新扫码', 410)
 
         const cred = JSON.parse(raw)
+        // 在合并前判断：这个账号是不是本来就在列表里（决定页面显示"新增"还是"更新登录"）
+        const prevState = await readState(env)
+        const existedBefore = prevState.accounts.some((a) => String(a.userid) === String(cred.userid))
         // 凭证放进一次性队列，由 Actions 主动领取：
         // 这样页面侧不写任何仓库配置（Secret / workflow 文件都不碰）
         const pendingId = crypto.randomUUID()
@@ -222,7 +229,14 @@ export default {
         // 立刻把新账号写进本地元数据，页面不用等 Actions 就能看到（昵称为空时后续同步会补）
         await mergeAccounts(env, [{ userid: cred.userid, nickname: cred.nickname }], { touch: false })
 
-        return json({ ok: true, userid: cred.userid, nickname: cred.nickname, pendingId })
+        // existed=true 表示这个账号本来就在 USERINFO 里，Actions 那边只会更新 token
+        return json({
+          ok: true,
+          userid: cred.userid,
+          nickname: cred.nickname,
+          pendingId,
+          existed: existedBefore,
+        })
       }
 
       if (path === '/api/remove') {
