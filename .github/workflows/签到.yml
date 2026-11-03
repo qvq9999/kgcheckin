@@ -2,9 +2,9 @@ name: 签到
 on:
   workflow_dispatch:
   schedule:
-    # 主触发：北京时间 01:10（UTC 17:10）
-    - cron: '10 17 * * *'
-    # 冗余触发：北京时间 05:23（UTC 21:23），错开整点；主触发被 GitHub 丢弃时兜底
+    # 触发主通道是 Cloudflare Worker 的 Cron Trigger（每天 UTC 17:10 = 北京 01:10
+    # 发 workflow_dispatch，准点）。GitHub 自身的 schedule 会被排队数小时，
+    # 这里只保留一条兜底：北京时间 05:23（UTC 21:23），用于 CF 侧失效时补签。
     - cron: '23 21 * * *'
 permissions:
   contents: read

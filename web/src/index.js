@@ -120,6 +120,34 @@ function sessionKey(id) {
 }
 
 export default {
+  /**
+   * Cron Trigger 入口：每天 UTC 17:10（北京 01:10）触发一次签到。
+   * GitHub 自己的 schedule 会延迟数小时，这里换成 Cloudflare 准点发 dispatch。
+   */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      (async () => {
+        const at = new Date().toISOString()
+        console.log('cron fired', at, event.cron)
+        try {
+          await dispatchWorkflow({
+            token: env.GH_PAT,
+            repo: env.GH_REPO,
+            workflow: env.CHECKIN_WORKFLOW || '签到.yml',
+            ref: env.GH_REF || 'main',
+          })
+          await env.STATE.put('cron:last', JSON.stringify({ at, cron: event.cron, ok: true }))
+        } catch (e) {
+          console.error('定时签到触发失败:', e.message)
+          await env.STATE.put(
+            'cron:last',
+            JSON.stringify({ at, cron: event.cron, ok: false, error: e.message })
+          )
+        }
+      })()
+    )
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url)
     const path = url.pathname
@@ -294,7 +322,21 @@ export default {
           // 只暴露状态码级信息，便于排查 PAT 失效，不泄露令牌本身
           runError = e && e.message ? String(e.message).slice(0, 200) : String(e)
         }
-        return json({ ok: true, ...state, latestRun: run, runError, hasPat: Boolean(env.GH_PAT) })
+        const cronRaw = await env.STATE.get('cron:last')
+        let cronLast = null
+        try {
+          cronLast = cronRaw ? JSON.parse(cronRaw) : null
+        } catch {
+          cronLast = { raw: cronRaw }
+        }
+        return json({
+          ok: true,
+          ...state,
+          latestRun: run,
+          runError,
+          hasPat: Boolean(env.GH_PAT),
+          cronLast,
+        })
       }
 
       if (path === '/internal/sync') {

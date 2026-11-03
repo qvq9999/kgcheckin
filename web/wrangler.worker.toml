@@ -4,6 +4,11 @@ main = "src/index.js"
 compatibility_date = "2025-10-01"
 workers_dev = true
 
+# Cron Trigger：每天 UTC 17:10 = 北京时间 01:10，准点触发签到 workflow
+# （GitHub 原生 schedule 会漂移数小时，改由这里发 workflow_dispatch）
+[triggers]
+crons = ["10 17 * * *"]
+
 # 静态页面：assets-first 路由，命中不到文件才进 Worker（/api/* 由 Worker 处理）
 [assets]
 directory = "./public"
