@@ -1,0 +1,63 @@
+name: 组队验证
+on:
+  workflow_dispatch:
+  schedule:
+    # 触发主通道是 Cloudflare Worker 的 Cron Trigger（每天 UTC 17:10 = 北京 01:10
+    # 发 workflow_dispatch，准点）。GitHub 自身的 schedule 会被排队数小时，
+    # 这里只保留一条兜底：北京时间 05:23（UTC 21:23），用于 CF 侧失效时补签。
+    - cron: '23 21 * * *'
+permissions:
+  contents: read
+  actions: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+      - name: 创建 Node 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: ./api/package-lock.json
+      - name: 缓存依赖
+        id: cache-npm
+        uses: actions/cache@v4
+        with:
+          path: ./api/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('./api/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: 安装依赖
+        run: npm run install
+        if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+      - name: 执行签到
+        run: npm run main
+        env:
+          USERINFO: ${{ secrets.USERINFO }}
+          PAT: ${{ secrets.PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # 网页控制台的状态同步（可选，未配置则跳过）
+          SYNC_URL: ${{ secrets.SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          # 通知渠道（按需配置，全部可选）
+          WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+          DINGTALK_BOT_KEY: ${{ secrets.DINGTALK_BOT_KEY }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          FEISHU_BOT_KEY: ${{ secrets.FEISHU_BOT_KEY }}
+          YUNHU_BOT_KEY: ${{ secrets.YUNHU_BOT_KEY }}
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          BARK_GROUP: ${{ secrets.BARK_GROUP }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
