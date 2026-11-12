@@ -107,8 +107,7 @@ async function runTeamStage(users) {
   const target = period.totalMembers || TARGET_MEMBERS
   result.period = {
     periodId: period.periodId,
-    // 临时版本标记：确认 Actions 实际执行的代码版本（KV 是唯一可用回传通道）
-    periodName: `${period.periodName}·v5`,
+    periodName: period.periodName,
     active: period.active,
     startTime: period.startTime,
     endTime: period.endTime,
@@ -161,8 +160,7 @@ async function runTeamStage(users) {
     try {
       const diag = await diagnoseTeamAuth(probe, period.periodId)
       const rec = result.accounts.find((a) => a.userid === probe.userid && a.role === 'failed')
-      const sha = String(process.env.GITHUB_SHA || 'local').slice(0, 7)
-      if (rec) rec.note = `[${sha}] ${rec.note} ｜ 诊断 ${diag}`
+      if (rec) rec.note = `${rec.note} ｜ 诊断 ${diag}`
       printYellow(`组队诊断（${label(probe)}）：${diag}`)
     } catch (e) {
       printYellow(`组队诊断异常：${e?.message || e}`)
