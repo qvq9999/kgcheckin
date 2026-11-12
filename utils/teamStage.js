@@ -12,7 +12,7 @@
 import { printBlue, printGreen, printRed, printYellow } from './colorOut.js'
 import { buildTeamCookie } from './device.js'
 import { maskDisplayName, maskIdentifier } from './safeLog.js'
-import { createTeam, getMyTeamInfo, getPeriodInfo, joinTeam, TARGET_MEMBERS } from './team.js'
+import { createTeam, getMyTeamInfo, getPeriodInfo, joinTeam, TARGET_MEMBERS, teamFetch } from './team.js'
 
 /** 单账号最大 join 尝试次数（同队重试无价值，只在网络抖动时补一次） */
 const JOIN_ATTEMPTS = 2
@@ -22,6 +22,32 @@ const MAX_TEAMS = 2
 const MIN_NEW_TEAM = 2
 
 const label = (acc) => maskDisplayName(acc.nickname) || maskIdentifier(acc.userid)
+
+/**
+ * 临时诊断：同一账号用不同参数组合打 /team/my/info，定位「51002 登录态无效」的成因。
+ * 结果写进该账号的 note，随 /internal/sync 落到 KV —— 在拿不到 Actions 日志的环境下
+ * 这是唯一能回传现场的通道。参数确认后可以删掉本函数。
+ */
+async function diagnoseTeamAuth(acc, periodId) {
+  const VARIANTS = [
+    { tag: '派生', mode: 'derived', lite: 0 },
+    { tag: '派生+lite', mode: 'derived', lite: 1 },
+    { tag: '短横线', mode: 'dash', lite: 0 },
+    { tag: '仅token', mode: 'none', lite: 0 },
+    { tag: '仅token+lite', mode: 'none', lite: 1 },
+  ]
+  const rows = []
+  for (const v of VARIANTS) {
+    const headers = { cookie: buildTeamCookie({ userid: acc.userid, token: acc.token }, v.mode) }
+    const q = `/team/my/info?period_id=${encodeURIComponent(periodId)}${v.lite ? '&_lite=1' : ''}`
+    const r = await teamFetch(q, 'GET', headers)
+    const body = r.body && typeof r.body === 'object' ? r.body : {}
+    const code = body.error_code ?? body.errcode ?? '-'
+    const st = body.status ?? '-'
+    rows.push(`${v.tag}:${r.status}/${st}/${code}`)
+  }
+  return rows.join('，')
+}
 
 /**
  * 执行组队阶段。
@@ -115,6 +141,19 @@ async function runTeamStage(users) {
 
   for (const { acc, note } of unavailable) {
     record(acc, 'failed', `查询队伍失败：${note}`, null, 0)
+  }
+
+  // 有账号查不到队伍时，顺带做一次参数诊断，把现场回传到 KV
+  if (unavailable.length > 0) {
+    const probe = unavailable[0].acc
+    try {
+      const diag = await diagnoseTeamAuth(probe, period.periodId)
+      const rec = result.accounts.find((a) => a.userid === probe.userid && a.role === 'failed')
+      if (rec) rec.note = `查询失败 → ${diag}`
+      printYellow(`组队诊断（${label(probe)}）：${diag}`)
+    } catch (e) {
+      printYellow(`组队诊断异常：${e?.message || e}`)
+    }
   }
 
   // 本期已经做过组队的账号：只记账，不再操作。

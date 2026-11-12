@@ -1,6 +1,7 @@
 //获取我的队伍状态
 const crypto = require('crypto');
 const { signatureWebParams,appid,clientver,srcappid,publicLiteRasKey } = require('../util');
+const cfg = require('../util/config.json');
 
 function rsaNoPadEncrypt(data, publicKeyPem) {
     const key = crypto.createPublicKey(publicKeyPem);
@@ -32,14 +33,18 @@ module.exports = (params, useAxios) => {
     token = 'h5' + encrypted;                       
 
     const clienttime = Date.now();
+    // 概念版（lite）参数覆盖：_lite=1 时用概念版 appid/clientver。
+    // 组队是概念版 H5 接口，标准版参数可能被判为无效登录态（51002）。
+    const useAppid = params?._lite ? cfg.liteAppid : appid;
+    const useClientver = params?._lite ? cfg.liteClientver : clientver;
     const dataMap = {
         srcappid,
-        clientver,
+        clientver: useClientver,
         clienttime,
         mid,
         uuid,
         dfid,
-        appid,
+        appid: useAppid,
         userid,
         token,
         period_id: params.period_id

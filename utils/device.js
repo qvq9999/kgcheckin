@@ -35,10 +35,18 @@ function deriveDevice(userid) {
 /**
  * 构造组队接口需要的 cookie 串。
  * team_* 模块读取 params.cookie 里的 token / userid / dfid / KUGOU_API_MID / uuid。
+ *
  * @param {{userid: string|number, token: string}} user
+ * @param {'derived'|'dash'|'none'} [mode]
+ *   derived — 派生指纹（默认，保证多账号互不相同）
+ *   dash    — 与签到请求一致，dfid 回落成 '-'（模块内部默认）
+ *   none    — 只带 token + userid，设备字段全部交给模块默认值
  * @returns {string}
  */
-function buildTeamCookie(user) {
+function buildTeamCookie(user, mode = 'derived') {
+  if (mode === 'none') return `token=${user.token}; userid=${user.userid}`
+  if (mode === 'dash') return `token=${user.token}; userid=${user.userid}; dfid=-`
+
   const { dfid, mid, uuid } = deriveDevice(user.userid)
   return [
     `token=${user.token}`,

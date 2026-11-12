@@ -414,7 +414,7 @@ function sanitizeTeam(team) {
     code: String(team.code || '').slice(0, 32),
     memberCount: Math.max(0, Number(team.memberCount) || 0),
     targetMembers: Math.max(0, Number(team.targetMembers) || 0),
-    note: String(team.note || '').slice(0, 120),
+    note: String(team.note || '').slice(0, 400),
     periodId: String(team.periodId || '').slice(0, 32),
     periodName: String(team.periodName || '').slice(0, 64),
     at: Date.now(),
