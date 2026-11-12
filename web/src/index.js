@@ -400,27 +400,6 @@ async function readState(env) {
   }
 }
 
-const TEAM_ROLES = new Set(['leader', 'member', 'joined', 'skipped', 'failed'])
-
-/**
- * 组队信息白名单化。
- * role 驱动前端徽标样式，code 是可以公开展示的组队码（不含任何凭证）。
- */
-function sanitizeTeam(team) {
-  if (!team || typeof team !== 'object') return null
-  const role = String(team.role || '')
-  return {
-    role: TEAM_ROLES.has(role) ? role : 'skipped',
-    code: String(team.code || '').slice(0, 32),
-    memberCount: Math.max(0, Number(team.memberCount) || 0),
-    targetMembers: Math.max(0, Number(team.targetMembers) || 0),
-    note: String(team.note || '').slice(0, 400),
-    periodId: String(team.periodId || '').slice(0, 32),
-    periodName: String(team.periodName || '').slice(0, 64),
-    at: Date.now(),
-  }
-}
-
 /**
  * 按 userid 合并账号元数据。
  * 只存昵称 / 签到状态 / VIP 到期时间，绝不存 token。
@@ -440,8 +419,6 @@ async function mergeAccounts(env, incoming, { touch = true, source = 'add' } = {
     if (item.note !== undefined) next.note = String(item.note)
     if (item.vipExpiry) next.vipExpiry = String(item.vipExpiry)
     if (item.error) next.error = String(item.error)
-    // 组队信息：只保留白名单字段，避免上报端塞进任意大对象
-    if (item.team !== undefined) next.team = sanitizeTeam(item.team)
     byId.set(userid, next)
   }
 

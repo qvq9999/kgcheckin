@@ -139,39 +139,6 @@ h1{font-size:19px;font-weight:600;color:#fff;letter-spacing:.2px;line-height:1.3
 .mgrid .cell.e .k em{background:var(--err-fg)}
 .mgrid .cell .v{font-size:16px;font-weight:600;letter-spacing:-.3px;margin-top:1px;line-height:1.2}
 
-/* 组队页 */
-.dots{display:flex;gap:4px;flex:0 0 auto}
-.dot{width:8px;height:8px;border-radius:50%;background:#E2EEF8;border:1px solid rgba(26,157,232,.16)}
-.dot.on{background:linear-gradient(135deg,#4BB6F4,#1A9DE8);border-color:transparent}
-.dot.lead{box-shadow:0 0 0 2px rgba(26,157,232,.16)}
-.teamhero{padding:13px 14px 12px}
-.thero{display:flex;align-items:center;gap:12px}
-.tnum{flex:0 0 auto;display:flex;align-items:baseline;gap:2px}
-.tnum b{font-size:27px;font-weight:600;letter-spacing:-1px;line-height:1;color:var(--text)}
-.tnum span{font-size:12px;color:var(--faint)}
-.tdesc{flex:1;min-width:0}
-.tdesc .tt{font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tdesc .ts{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dots.big{gap:6px;margin-top:12px}
-.dots.big .dot{width:auto;height:7px;border-radius:4px;flex:1}
-.codebox{display:flex;align-items:center;gap:8px;margin-top:12px;padding:9px 11px;border-radius:12px;
-  background:#F3FAFF;border:1px solid rgba(26,157,232,.16)}
-.codebox .k{font-size:10.5px;color:var(--faint);flex:0 0 auto}
-.codebox .v{flex:1;min-width:0;font-size:17px;font-weight:600;letter-spacing:2px;
-  font-variant-numeric:tabular-nums;color:var(--blueDeep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.copybtn{height:28px;padding:0 12px;border-radius:9px;border:none;cursor:pointer;flex:0 0 auto;
-  background:linear-gradient(135deg,#1A9DE8,#3EAEF0);color:#fff;font-size:11.5px;font-weight:500;
-  box-shadow:0 6px 14px rgba(26,157,232,.26)}
-.copybtn:active{opacity:.86}
-.copybtn[disabled]{background:#CFE3F1;color:#7C99AC;box-shadow:none;cursor:default}
-.tmeta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;
-  font-size:10.5px;color:var(--faint)}
-.tmeta .l{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tmeta .r{flex:0 0 auto;color:var(--wait-fg)}
-.roleTag{display:inline-block;margin-left:5px;padding:0 5px;border-radius:5px;font-size:9.5px;
-  line-height:15px;vertical-align:1px;background:var(--soft);color:var(--blueDeep);white-space:nowrap}
-.roleTag.lead{background:#E9F6E4;color:#4A8C34}
-.roleTag.warn{background:var(--wait-bg);color:var(--wait-fg)}
 
 /* 搜索 */
 .searchrow{position:relative;margin-top:10px;flex:0 0 auto}
@@ -249,7 +216,6 @@ h1{font-size:19px;font-weight:600;color:#fff;letter-spacing:.2px;line-height:1.3
 /* ================= 扫码页 ================= */
 #p2 .sheet{justify-content:center;overflow-y:auto}
 #p2 .note{margin-top:14px}
-#p3 .note{margin-top:10px}
 .qrcard{padding:18px 16px 15px;display:flex;flex-direction:column;align-items:center;margin-top:10px}
 .qctop{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
 .qctop .qtitle{font-size:14px;font-weight:600;color:var(--text)}
@@ -299,7 +265,7 @@ h1{font-size:19px;font-weight:600;color:#fff;letter-spacing:.2px;line-height:1.3
   box-shadow:0 14px 32px rgba(14,84,132,.18),0 2px 6px rgba(14,84,132,.06);
 }
 .tabbar .ind{
-  position:absolute;left:6px;top:6px;width:calc((100% - 12px) / 3);height:46px;border-radius:23px;
+  position:absolute;left:6px;top:6px;width:calc(50% - 6px);height:46px;border-radius:23px;
   background:linear-gradient(135deg,rgba(26,157,232,.16),rgba(99,168,243,.14));
   border:1px solid rgba(26,157,232,.16);
   transition:transform .42s var(--ease);
@@ -490,58 +456,6 @@ h1{font-size:19px;font-weight:600;color:#fff;letter-spacing:.2px;line-height:1.3
         </div>
       </section>
 
-      <!-- ---------- 页 3：组队领 VIP ---------- -->
-      <section class="page is-right" id="p3">
-        <header class="hero">
-          <div class="heroTop">
-            <div class="brandrow">
-              <span class="brandmark"><img src="/icon.png" alt=""></span>
-              <div style="min-width:0">
-                <h1>组队领 VIP</h1>
-                <div class="heroSub" id="teamSub">3 人成队，账号自动互填</div>
-              </div>
-            </div>
-            <span class="chip ghost" style="margin-top:4px" id="teamHeroChip">未参与</span>
-          </div>
-        </header>
-
-        <div class="sheet">
-          <div class="card teamhero" id="teamHeroCard">
-            <div class="thero">
-              <div class="tnum"><b id="teamBig">0</b><span id="teamBigTarget">/ 3</span></div>
-              <div class="tdesc">
-                <div class="tt" id="teamBigTitle">本期尚未组队</div>
-                <div class="ts" id="teamBigSub">签到完成后会自动建队</div>
-              </div>
-            </div>
-            <div class="dots big" id="teamDotsBig"></div>
-            <div class="codebox">
-              <span class="k">队伍码</span>
-              <span class="v" id="teamCodeBig">—</span>
-              <button class="copybtn" id="teamCopyBig" type="button" disabled>复制</button>
-            </div>
-            <div class="tmeta">
-              <span class="l" id="teamMetaLeft">—</span>
-              <span class="r" id="teamMetaRight"></span>
-            </div>
-          </div>
-
-          <div class="card listcard">
-            <div class="listhead">
-              <span class="t">队伍账号 <b id="teamHeadCount">0</b></span>
-              <span class="right"><span class="time" id="teamHeadHint"></span></span>
-            </div>
-            <div class="list" id="teamList"></div>
-          </div>
-
-          <div class="note">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v3.4M8 5.1v.1" stroke-linecap="round"/></svg>
-            <p>每期需 3 人成队。签到完成后会自动建队并互填；酷狗不支持退队，入队后本期不可更改。</p>
-          </div>
-
-          <p class="foot" id="teamFoot"></p>
-        </div>
-      </section>
 
     </div>
 
@@ -555,16 +469,7 @@ h1{font-size:19px;font-weight:600;color:#fff;letter-spacing:.2px;line-height:1.3
         </svg>
         <span>签到看板</span>
       </button>
-      <button class="tab" data-i="1" aria-label="组队领VIP">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="9.2" cy="8.2" r="3.1"/>
-          <path d="M3.5 19.3c0-3.1 2.5-5.2 5.7-5.2s5.7 2.1 5.7 5.2"/>
-          <path d="M16.3 5.5a3.1 3.1 0 0 1 0 5.8"/>
-          <path d="M18.4 14.5c1.9.7 3.1 2.4 3.1 4.4"/>
-        </svg>
-        <span>组队</span>
-      </button>
-      <button class="tab" data-i="2" aria-label="扫码登录">
+      <button class="tab" data-i="1" aria-label="扫码登录">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3.5 8.7V6.5a3 3 0 0 1 3-3h2.1M20.5 8.7V6.5a3 3 0 0 0-3-3h-2.1M3.5 15.3v2.2a3 3 0 0 0 3 3h2.1M20.5 15.3v2.2a3 3 0 0 1-3 3h-2.1"/>
           <path d="M3.7 12h16.6"/>
@@ -813,104 +718,6 @@ function avatarOf(name, i) {
   return AV_GRAD[(h + i) % AV_GRAD.length];
 }
 
-// 账号行里的组队角色标记
-function teamBadgeOf(team) {
-  if (!team || !team.role) return null;
-  if (team.role === 'leader') return { text: '队长', cls: 'lead' };
-  if (team.role === 'member') return { text: '队员', cls: '' };
-  if (team.role === 'joined') return { text: '已入队', cls: '' };
-  if (team.role === 'failed') return { text: '未入队', cls: 'warn' };
-  return null;
-}
-
-// 组队页：进度 + 队伍码 + 参与账号列表
-function renderTeamPage(all) {
-  const withTeam = all.filter((a) => a.team && a.team.role);
-  const coded = withTeam
-    .filter((a) => a.team.code)
-    .sort((a, b) => (b.team.memberCount || 0) - (a.team.memberCount || 0));
-  const main = coded[0] || null;
-  const target = Math.max(3, ...withTeam.map((a) => Number(a.team.targetMembers) || 0));
-  const count = main ? Math.min(target, Number(main.team.memberCount) || 0) : 0;
-  const failed = withTeam.filter((a) => a.team.role === 'failed');
-  const period = withTeam.length ? withTeam[0].team : null;
-
-  $('teamBig').textContent = count;
-  $('teamBigTarget').textContent = '/ ' + target;
-  $('teamBigTitle').textContent = !main
-    ? '本期尚未组队'
-    : (count >= target ? '队伍已满员' : `还差 ${target - count} 人成队`);
-  $('teamBigSub').textContent = !withTeam.length
-    ? '签到完成后会自动建队并互填'
-    : (!main
-      ? '本期没组成队伍，下次签到会重试'
-      : (count >= target ? 'VIP 将在活动结束后自动发放' : '把队伍码发给好友，在概念版APP填入即可'));
-
-  $('teamHeroChip').textContent = !main ? '未成队' : (count >= target ? '已满员' : '进行中');
-
-  const dots = $('teamDotsBig');
-  dots.textContent = '';
-  for (let i = 0; i < target; i++) {
-    let cls = 'dot';
-    if (i < count) cls += ' on';
-    if (i === 0 && count > 0) cls += ' lead';
-    dots.appendChild(el('span', cls));
-  }
-
-  $('teamCodeBig').textContent = main ? main.team.code : '—';
-  $('teamCopyBig').disabled = !main;
-
-  const codeCount = new Set(coded.map((a) => a.team.code)).size;
-  $('teamMetaLeft').textContent =
-    ((period && period.periodName) || '本期活动') + (codeCount > 1 ? ` · ${codeCount} 支队伍` : '');
-  const right = $('teamMetaRight');
-  if (failed.length) {
-    right.textContent = `${failed.length} 个账号未加入`;
-  } else if (main && count >= target) {
-    right.textContent = `${count}/${target} 已满员`;
-  } else if (main) {
-    right.textContent = `${count}/${target} 进行中`;
-  } else {
-    right.textContent = '暂无队伍';
-  }
-
-  const list = $('teamList');
-  list.textContent = '';
-  $('teamHeadCount').textContent = withTeam.length;
-  $('teamHeadHint').textContent = withTeam.length && fetchedAt ? '更新于 ' + fmtAgo(fetchedAt) : '';
-
-  if (!withTeam.length) {
-    const box = el('div', 'empty');
-    box.textContent = '本期还没有组队记录。签到完成后，这里会显示队伍进度与参与账号。';
-    list.appendChild(box);
-  } else {
-    withTeam.forEach((a, i) => {
-      const item = el('div', 'item');
-      const av = el('div', 'avatar', (a.nickname || '?').slice(0, 1));
-      av.style.background = avatarOf(a.nickname, i);
-      const body = el('div', 'body');
-      body.appendChild(el('div', 'name', a.nickname || '（未获取昵称）'));
-      const meta = el('div', 'meta');
-      meta.textContent = a.team.note || '—';
-      body.appendChild(meta);
-      const rightBox = el('div', 'right');
-      const badge = teamBadgeOf(a.team);
-      if (badge) {
-        rightBox.appendChild(el('span', 'chip ' + (badge.cls === 'warn' ? 'wait' : 'ok'), badge.text));
-      }
-      item.append(av, body, rightBox);
-      list.appendChild(item);
-    });
-  }
-
-  $('teamSub').textContent = withTeam.length
-    ? `${withTeam.length} 个账号参与 · ${count}/${target} 人`
-    : '3 人成队，账号自动互填';
-  $('teamFoot').textContent = main
-    ? `${(period && period.periodName) || '本期'} · 队伍码 ${main.team.code}`
-    : '队伍码仅用于邀请好友，不含账号凭证';
-}
-
 function render() {
   const list = $('list');
   const q = $('q').value.trim().toLowerCase();
@@ -932,7 +739,6 @@ function render() {
   $('ringTxt').textContent = all.length ? signed + '/' + all.length : '—';
   $('ringArc').setAttribute('stroke-dasharray', (all.length ? RING_LEN * signed / all.length : 0).toFixed(1) + ' ' + RING_LEN);
 
-  renderTeamPage(all);
 
   list.textContent = '';
   if (!matched.length) {
@@ -949,9 +755,7 @@ function render() {
       const body = el('div', 'body');
       body.appendChild(el('div', 'name', a.nickname || '（未获取昵称）'));
       const meta = el('div', 'meta');
-      meta.appendChild(document.createTextNode(`${maskId(a.userid)} · ${fmtVip(a.vipExpiry)}`));
-      const badge = teamBadgeOf(a.team);
-      if (badge) meta.appendChild(el('span', 'roleTag' + (badge.cls ? ' ' + badge.cls : ''), badge.text));
+      meta.textContent = `${maskId(a.userid)} · ${fmtVip(a.vipExpiry)}`;
       body.appendChild(meta);
 
       const right = el('div', 'right');
@@ -1339,9 +1143,9 @@ async function enter() {
 }
 
 /* ================= 底部导航：三页切换 ================= */
-// 顺序必须与 tabbar 里的按钮一致：0 签到看板 / 1 组队 / 2 扫码登录
+// 顺序必须与 tabbar 里的按钮一致：0 签到看板 / 1 扫码登录
 let tabIndex = 0;
-const pages = [$('p1'), $('p3'), $('p2')];
+const pages = [$('p1'), $('p2')];
 const tabs = Array.from(document.querySelectorAll('.tab'));
 
 function setTab(i) {
@@ -1354,7 +1158,7 @@ function setTab(i) {
   $('ind').style.transform = 'translateX(' + tabIndex * 100 + '%)';
   tabs.forEach((t, k) => t.classList.toggle('on', k === tabIndex));
   // 进扫码页时，二维码若已过期/已用完就自动换一张
-  if (tabIndex === 2 && (qr.done || !qr.key)) newQr();
+  if (tabIndex === 1 && (qr.done || !qr.key)) newQr();
 }
 
 tabs.forEach((t, i) => t.addEventListener('click', () => setTab(i)));
@@ -1373,17 +1177,6 @@ $('modalOk').addEventListener('click', confirmDelete);
 $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
 $('q').addEventListener('input', render);
 $('list').addEventListener('scroll', syncScrollHint, { passive: true });
-$('teamCopyBig').addEventListener('click', async () => {
-  const code = $('teamCodeBig').textContent.trim();
-  if (!code || code === '—') return;
-  try {
-    await navigator.clipboard.writeText(code);
-    toast('队伍码已复制');
-  } catch {
-    // 非安全上下文（http / 部分内置浏览器）没有 clipboard API，退回到手选
-    toast('复制失败，请手动长按选择', true);
-  }
-});
 
 (async function boot() {
   if (!token) { showGate(''); return; }
