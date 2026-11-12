@@ -107,7 +107,8 @@ async function runTeamStage(users) {
   const target = period.totalMembers || TARGET_MEMBERS
   result.period = {
     periodId: period.periodId,
-    periodName: period.periodName,
+    // 临时版本标记：确认 Actions 实际执行的代码版本（KV 是唯一可用回传通道）
+    periodName: `${period.periodName}·v5`,
     active: period.active,
     startTime: period.startTime,
     endTime: period.endTime,
