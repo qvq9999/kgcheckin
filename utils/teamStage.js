@@ -30,22 +30,20 @@ const label = (acc) => maskDisplayName(acc.nickname) || maskIdentifier(acc.useri
  */
 async function diagnoseTeamAuth(acc, periodId) {
   const VARIANTS = [
-    { tag: '派生', mode: 'derived', lite: 0 },
-    { tag: '派生+lite', mode: 'derived', lite: 1 },
-    { tag: '短横线', mode: 'dash', lite: 0 },
-    { tag: '仅token', mode: 'none', lite: 0 },
-    { tag: '仅token+lite', mode: 'none', lite: 1 },
+    { tag: '全指纹', mode: 'derived' },
+    { tag: '仅短横', mode: 'dash' },
+    { tag: '横+mid', mode: 'flat' },
   ]
   const rows = []
   for (const v of VARIANTS) {
     const headers = { cookie: buildTeamCookie({ userid: acc.userid, token: acc.token }, v.mode) }
-    const q = `/team/my/info?period_id=${encodeURIComponent(periodId)}${v.lite ? '&_lite=1' : ''}`
-    const r = await teamFetch(q, 'GET', headers)
-    const body = r.body && typeof r.body === 'object' ? r.body : {}
-    const code = body.error_code ?? body.errcode ?? '-'
-    const st = body.status ?? '-'
-    rows.push(`${v.tag}:${r.status}/${st}/${code}`)
-    await new Promise((res) => setTimeout(res, 600))
+    const p = await teamFetch('/team/period/info', 'GET', headers)
+    await new Promise((res) => setTimeout(res, 500))
+    const m = await teamFetch(`/team/my/info?period_id=${encodeURIComponent(periodId)}`, 'GET', headers)
+    const pb = p.body && typeof p.body === 'object' ? p.body : {}
+    const mb = m.body && typeof m.body === 'object' ? m.body : {}
+    rows.push(`${v.tag}→期${p.status}/${pb.status ?? '-'} 队${m.status}/${mb.error_code ?? '-'}`)
+    await new Promise((res) => setTimeout(res, 500))
   }
   return rows.join('，')
 }
@@ -62,17 +60,19 @@ async function runTeamStage(users) {
     return result
   }
 
-  // 设备指纹实测结论（2026-11-12）：
-  //   唯一派生 dfid → /team/my/info 返回 51002（token 与设备不匹配，登录态被拒）
-  //   dfid='-'（与签到请求一致）→ 返回 20006（本期无队伍，属正常状态）
-  // 因此组队请求一律沿用签到那套 '-' 设备，先把链路跑通；
-  // 多账号共用同一设备是否触发 143005 需实测，届时再决定是否补真实设备指纹。
+  // 设备指纹策略（2026-11-12 实测）：
+  //   现有 USERINFO 里的 token 是本地 api 用 dfid='-' 签发的，因此组队请求必须沿用 '-'
+  //   （换成任何派生指纹都会被判「token 与设备不匹配」→ 51002）。
+  //   但 dfid='-' 时 mid/uuid 为空会让期次接口签名残缺，所以期次另用一套完整派生指纹：
+  //   期次接口不校验登录态，只看参数完整性。
   const accounts = users.map((u) => ({
     userid: String(u.userid),
     nickname: u.nickname || '',
     token: u.token,
     headers: { cookie: buildTeamCookie(u, 'dash') },
   }))
+  // dfid 与 token 签发设备保持一致（'-'），同时补齐 mid/uuid 让签名完整
+  const periodHeaders = { cookie: buildTeamCookie(users[0], 'flat') }
 
   const record = (acc, role, note, team, memberCount) => {
     result.accounts.push({
@@ -87,15 +87,16 @@ async function runTeamStage(users) {
   }
 
   // ---------- ① GUARD：期次 ----------
+  // 期次接口不校验登录态，用 flat 指纹（dfid 与 token 一致 + 完整 mid/uuid）成功率高
   let period = null
   let periodError = ''
-  for (const acc of accounts) {
-    const r = await getPeriodInfo(acc.headers)
+  {
+    const r = await getPeriodInfo(periodHeaders)
     if (r.ok) {
       period = r
-      break
+    } else {
+      periodError = r.error || '获取活动信息失败'
     }
-    periodError = r.error || '获取活动信息失败'
   }
 
   if (!period) {

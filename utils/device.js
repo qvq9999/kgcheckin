@@ -48,6 +48,17 @@ function buildTeamCookie(user, mode = 'derived') {
   if (mode === 'dash') return `token=${user.token}; userid=${user.userid}; dfid=-`
 
   const { dfid, mid, uuid } = deriveDevice(user.userid)
+  // flat：dfid 用 '-'（与 token 签发设备一致），但 mid/uuid 保持完整，
+  // 避免签名缺项。用于期次这类「只看参数完整性、不校验登录态」的接口。
+  if (mode === 'flat') {
+    return [
+      `token=${user.token}`,
+      `userid=${user.userid}`,
+      'dfid=-',
+      `KUGOU_API_MID=${mid}`,
+      `uuid=${uuid}`,
+    ].join('; ')
+  }
   return [
     `token=${user.token}`,
     `userid=${user.userid}`,
