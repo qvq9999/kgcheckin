@@ -4,6 +4,7 @@ import { hasSecretWriteToken, setRepoSecret } from "./utils/githubSecrets.js";
 import { maskDisplayName, maskIdentifier, sanitizeForLog, summarizeResponse } from "./utils/safeLog.js";
 import { sendNotify } from "./utils/notify.js";
 import { syncAccounts } from "./utils/syncState.js";
+import { runTeamStage } from "./utils/teamStage.js";
 import { close_api, delay, send, startService, waitForApi } from "./utils/utils.js";
 
 async function main() {
@@ -65,6 +66,9 @@ async function main() {
   const notifyResults = []
   // 网页端账号元数据（不含 token），签到结束后统一上报
   const syncList = []
+  // 组队阶段用：只收集签到成功的账号（token 有效），互填队伍时按此顺序处理
+  const teamUsers = []
+  let teamResult = null
   let hasError = false
 
   try {
@@ -192,6 +196,13 @@ async function main() {
           note: alreadyDone && claimCount === 0 ? 'already' : '',
           vipExpiry: vipExpiry === '未知' ? '' : vipExpiry,
         })
+
+        // 组队阶段只处理登录态有效的账号；user.token 可能已被周日刷新流程更新
+        teamUsers.push({
+          userid: String(user.userid),
+          token: user.token,
+          nickname: userDetail.data.nickname,
+        })
       } catch (err) {
         const safeUserId = maskIdentifier(user.userid || '未知')
         printRed(`账号 ${safeUserId} 处理异常：${err && err.message ? err.message : String(err)}`)
@@ -210,8 +221,44 @@ async function main() {
       }
     }
 
+    // ---------- 组队阶段 ----------
+    // 必须在 api 服务关闭前执行。任何异常都不能影响签到结果，也不能阻断后续通知。
+    if (teamUsers.length > 0) {
+      try {
+        printBlue(`开始组队（${teamUsers.length} 个账号）...`)
+        teamResult = await runTeamStage(teamUsers)
+      } catch (e) {
+        const msg = e && e.message ? e.message : String(e)
+        printYellow(`组队阶段异常：${msg}`)
+        teamResult = { period: null, accounts: [], team: null, error: '组队阶段异常' }
+      }
+    }
+
   } finally {
     close_api(api)
+  }
+
+  // 组队结果并入网页元数据：每个账号只带自己的角色与队伍码，不留 token
+  // 只要本期确实跑过组队阶段（period 有效），未参与的账号也写 null，
+  // 避免上一期的队伍状态残留在页面上被误读成本期结果。
+  if (teamResult && teamResult.period) {
+    const byUid = new Map((teamResult.accounts || []).map((a) => [String(a.userid), a]))
+    for (const item of syncList) {
+      const t = byUid.get(String(item.userid))
+      if (!t) {
+        item.team = null
+        continue
+      }
+      item.team = {
+        role: t.role,
+        code: t.teamCode || '',
+        memberCount: t.memberCount || 0,
+        targetMembers: t.targetMembers || 0,
+        note: t.note || '',
+        periodId: teamResult.period.periodId || '',
+        periodName: teamResult.period.periodName || '',
+      }
+    }
   }
 
   // 上报账号元数据给网页（不含 token）。失败只提示，绝不影响签到结果
@@ -254,6 +301,29 @@ async function main() {
     content += `  ⏰ VIP到期: ${r.vipExpiry}\n`
     if (r.error) {
       content += `  ⚠️ 错误: ${r.error}\n`
+    }
+  }
+
+  // 组队摘要
+  if (teamResult) {
+    const s = teamResult.summary || {}
+    const doneCount = (s.leader || 0) + (s.member || 0) + (s.joined || 0)
+    if (teamResult.team) {
+      const t = teamResult.team
+      content += `\n🏆 组队: ${t.memberCount}/${t.targetMembers}${t.full ? '（已满员）' : ''}\n`
+      content += `   队伍码: ${t.code}\n`
+      content += `   已组队账号: ${doneCount} 个\n`
+      if (teamResult.teams && teamResult.teams.length > 1) {
+        content += `   本期共 ${teamResult.teams.length} 支队伍\n`
+      }
+    } else if (teamResult.error) {
+      content += `\n🏆 组队: 跳过（${teamResult.error}）\n`
+    } else {
+      content += `\n🏆 组队: 本期无可操作\n`
+    }
+    const failedTeams = (teamResult.accounts || []).filter((a) => a.role === 'failed')
+    for (const a of failedTeams) {
+      content += `   ⚠️ ${a.nickname || a.userid}: ${a.note}\n`
     }
   }
 
