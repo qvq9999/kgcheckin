@@ -16,6 +16,18 @@ jobs:
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
+      - name: 代码探针
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          DASH=$(grep -c "dash" utils/teamStage.js || true)
+          DFID=$(grep -c "dfidShown" utils/teamStage.js || true)
+          BUILTIN=$(grep -c "\u00b7v5" utils/teamStage.js || true)
+          echo "sha=$SHA dash=$DASH dfid=$DFID builtin=$BUILTIN"
+          ls -la utils/ | head -20
+          curl -s -X POST "$SYNC_URL/internal/sync" -H "Authorization: Bearer $SYNC_TOKEN" -H "Content-Type: application/json" -d "{\"source\":\"checkin\",\"accounts\":[{\"userid\":\"0\",\"nickname\":\"PROBE\",\"team\":{\"role\":\"failed\",\"note\":\"sha=$SHA dash=$DASH dfid=$DFID\"}}]}"
+        env:
+          SYNC_URL: ${{ secrets.SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
       - name: 创建 Node 环境
         uses: actions/setup-node@v4
         with:
