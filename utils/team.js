@@ -228,7 +228,15 @@ async function getMyTeamInfo(headers, periodId) {
     headers,
   )
   const fail = bizFailed(r)
-  if (fail) return { ok: false, error: fail }
+  if (fail) {
+    // 20006 实测在「该账号本期没有任何队伍」时返回（无创建、无加入）。
+    // 这是正常状态而非故障：必须当作空队伍继续走建队流程，否则新人永远组不上。
+    const code = Number(pick(r.body, ['error_code', 'errcode', 'code'], 0))
+    if (code === 20006) {
+      return { ok: true, created: null, joined: null, joinedChecked: true, status: r.status }
+    }
+    return { ok: false, error: fail }
+  }
   return { ok: true, ...normalizeTeamInfo(r.body), status: r.status }
 }
 

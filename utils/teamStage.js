@@ -61,11 +61,16 @@ async function runTeamStage(users) {
     return result
   }
 
+  // 设备指纹实测结论（2026-11-12）：
+  //   唯一派生 dfid → /team/my/info 返回 51002（token 与设备不匹配，登录态被拒）
+  //   dfid='-'（与签到请求一致）→ 返回 20006（本期无队伍，属正常状态）
+  // 因此组队请求一律沿用签到那套 '-' 设备，先把链路跑通；
+  // 多账号共用同一设备是否触发 143005 需实测，届时再决定是否补真实设备指纹。
   const accounts = users.map((u) => ({
     userid: String(u.userid),
     nickname: u.nickname || '',
     token: u.token,
-    headers: { cookie: buildTeamCookie(u) },
+    headers: { cookie: buildTeamCookie(u, 'dash') },
   }))
 
   const record = (acc, role, note, team, memberCount) => {
