@@ -61,15 +61,15 @@ async function runTeamStage(users) {
   }
 
   // 设备指纹策略（2026-11-12 实测）：
-  //   现有 USERINFO 里的 token 是本地 api 用 dfid='-' 签发的，因此组队请求必须沿用 '-'
-  //   （换成任何派生指纹都会被判「token 与设备不匹配」→ 51002）。
-  //   但 dfid='-' 时 mid/uuid 为空会让期次接口签名残缺，所以期次另用一套完整派生指纹：
-  //   期次接口不校验登录态，只看参数完整性。
+  //   现有 USERINFO 里的 token 是本地 api 用 dfid='-' 签发的，换成其他 dfid 会被判
+  //   「token 与设备不匹配」→ 51002；而 dfid='-' 时若 mid/uuid 为空，建队接口直接报
+  //   「err appid(srcappid) or clientver or mid or dfid」。
+  //   所以统一用 flat：dfid 保持 '-'（设备一致）+ 补齐 mid/uuid（参数完整）。
   const accounts = users.map((u) => ({
     userid: String(u.userid),
     nickname: u.nickname || '',
     token: u.token,
-    headers: { cookie: buildTeamCookie(u, 'dash') },
+    headers: { cookie: buildTeamCookie(u, 'flat') },
   }))
   // dfid 与 token 签发设备保持一致（'-'），同时补齐 mid/uuid 让签名完整
   const periodHeaders = { cookie: buildTeamCookie(users[0], 'flat') }
