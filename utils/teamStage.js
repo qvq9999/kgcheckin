@@ -45,6 +45,7 @@ async function diagnoseTeamAuth(acc, periodId) {
     const code = body.error_code ?? body.errcode ?? '-'
     const st = body.status ?? '-'
     rows.push(`${v.tag}:${r.status}/${st}/${code}`)
+    await new Promise((res) => setTimeout(res, 600))
   }
   return rows.join('，')
 }
@@ -128,7 +129,9 @@ async function runTeamStage(users) {
   for (const acc of accounts) {
     const info = await getMyTeamInfo(acc.headers, period.periodId)
     if (!info.ok) {
-      unavailable.push({ acc, note: info.error })
+      // 把主流程实际使用的设备指纹与返回码一并带出，便于和诊断变体对照
+      const dfidShown = (String(acc.headers.cookie).match(/dfid=([^;]*)/) || [])[1] ?? '(无)'
+      unavailable.push({ acc, note: `${info.error} [dfid=${dfidShown}]` })
       continue
     }
     if (info.created) {
@@ -142,6 +145,9 @@ async function runTeamStage(users) {
     } else {
       free.push(acc)
     }
+    // 账号间留间隔：连续快速请求容易被判为异常（实测首轮 5 个账号全 51002，
+    // 而同参数单发请求返回 20006，怀疑与突发频率有关）
+    await new Promise((r) => setTimeout(r, 500))
   }
 
   for (const { acc, note } of unavailable) {
@@ -154,7 +160,7 @@ async function runTeamStage(users) {
     try {
       const diag = await diagnoseTeamAuth(probe, period.periodId)
       const rec = result.accounts.find((a) => a.userid === probe.userid && a.role === 'failed')
-      if (rec) rec.note = `查询失败 → ${diag}`
+      if (rec) rec.note = `${rec.note} ｜ 诊断 ${diag}`
       printYellow(`组队诊断（${label(probe)}）：${diag}`)
     } catch (e) {
       printYellow(`组队诊断异常：${e?.message || e}`)
