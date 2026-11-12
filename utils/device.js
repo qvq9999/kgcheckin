@@ -48,15 +48,20 @@ function buildTeamCookie(user, mode = 'derived') {
   if (mode === 'dash') return `token=${user.token}; userid=${user.userid}; dfid=-`
 
   const { dfid, mid, uuid } = deriveDevice(user.userid)
-  // flat：dfid 用 '-'（与 token 签发设备一致），但 mid/uuid 保持完整，
-  // 避免签名缺项。用于期次这类「只看参数完整性、不校验登录态」的接口。
+  // flat：完整复刻签到请求的设备组合 —— dfid 固定 '-'，mid/uuid 由 '-' 派生。
+  // 关键：mid 必须与 dfid 同源。用 userid 派生的 mid 配 dfid='-' 会被判设备不匹配（51002），
+  // 而 mid 留空又会被建队接口拒（err ... or mid or dfid）。
   if (mode === 'flat') {
+    const d = '-'
+    const h = md5(d)
+    const fm = `${h}${h.slice(0, 7)}`
+    const fu = md5(`${d}${fm}`)
     return [
       `token=${user.token}`,
       `userid=${user.userid}`,
-      'dfid=-',
-      `KUGOU_API_MID=${mid}`,
-      `uuid=${uuid}`,
+      `dfid=${d}`,
+      `KUGOU_API_MID=${fm}`,
+      `uuid=${fu}`,
     ].join('; ')
   }
   return [
